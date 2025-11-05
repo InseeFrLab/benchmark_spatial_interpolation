@@ -1,0 +1,135 @@
+# %%
+import os
+import glob
+import re
+import polars as pl
+import shutil
+import requests
+from osgeo import gdal
+import s3fs
+import zipfile
+
+# %%
+# Connect to S3
+fs = s3fs.S3FileSystem(anon=False)  # set anon=True for public buckets
+
+# Define your S3 path
+s3_path = 's3://projet-benchmark-spatial-interpolation'
+
+# %%
+# Download data
+# mc cp s3/projet-benchmark-spatial-interpolation/data/synthetic/second_kaust_competition_data.zip ./
+# %%
+
+with zipfile.ZipFile("/home/onyxia/µwork/second_kaust_competition_data.zip", 'r') as zip_ref:
+    zip_ref.extractall(path='rawdata/')
+# %%
+list_files = glob.glob('rawdata/**/*.csv', recursive=True)
+list_files
+# %%
+
+for file in list_files:
+    print(file)
+    print("    Read data")
+    df = pl.read_csv(file)
+    filename = os.path.splitext(os.path.basename(file))[0]
+
+    # Write to S3
+    print("    Write to S3")
+    df.write_parquet(
+        f"{s3_path}/data/synthetic/KAUST2/{filename}.parquet",
+        use_pyarrow=True
+    )
+
+# %%
+df.head()
+
+# %%
+
+
+# URL of the BD ALTI page
+url = "https://geoservices.ign.fr/bdalti"
+
+# Fetch the HTML content
+html = requests.get(url).text
+
+# Regex pattern to find all BDALTI download links
+pattern = r"https://data\.geopf\.fr/telechargement/download/BDALTI/[^\s\"']+7z"
+
+# Extract all matching URLs
+asc_urls = re.findall(pattern, html)
+
+# Remove duplicates and sort
+asc_urls = sorted(set(asc_urls))
+
+# %%
+for file_url in asc_urls:
+    # Detect departement
+    prefix = r'https://data\.geopf\.fr/telechargement/download/BDALTI/BDALTIV2_2-0_25M_ASC_LAMB93-(IGN69|IGN78C)_'
+
+    pattern = prefix + r'([^_]+)'
+
+    match = re.search(pattern, file_url)
+    if match:
+        departement = match.group(2)
+        print(departement)
+    else:
+        raise ValueError("No departement found")
+        
+    # Prepare folders
+    shutil.rmtree("./rawdata", ignore_errors=True)
+    shutil.rmtree("./data", ignore_errors=True)
+    shutil.rmtree("./finaldata", ignore_errors=True)
+    os.mkdir("./rawdata")
+    os.mkdir("./data")
+    os.mkdir("./finaldata")
+
+    print("Downloading data")
+    archivename = file_url.rsplit('/', 1)[-1]
+    download_file(file_url, "./rawdata/")
+
+    # Extract all .asc files
+    print("Extracting data")
+    with py7zr.SevenZipFile("./rawdata/"+archivename, mode='r') as archive:
+        list_compressed_files = [f for f in archive.namelist() if re.search('1_DONNEES_LIVRAISON.*\\.asc', f)]
+        archive.extract(path='./data/', targets=list_compressed_files)
+
+    print("Converting data")
+    gdal.BuildVRT('out.vrt', glob.glob("data/**/*.asc", recursive=True))
+    gdal.Translate('BDALTI.tif', 'out.vrt', format='gtiff')
+
+    print("Writing data to S3")
+    os.system(f"mc cp BDALTI.tif s3/oliviermeslin/BDALTI/BDALTI_tif/BDALTI_{departement}.tif")
+
+# %%
+# STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP
+# STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP
+# STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP
+# STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP
+# STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP STOP
+
+
+# %%
+# Map the altitude
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+
+# Open the TIFF file
+dataset = gdal.Open('out.tif', gdal.GA_ReadOnly)
+band = dataset.GetRasterBand(1)
+# Get NODATA value
+nodata = band.GetNoDataValue()
+
+# Read raster data as array
+array = band.ReadAsArray()
+
+# Mask nodata values by setting them to np.nan
+if nodata is not None:
+    array = np.where(array == nodata, np.nan, array)
+
+# Plot using matplotlib
+plt.imshow(array, cmap='terrain')
+plt.colorbar()
+plt.title('Map from GeoTIFF using GDAL')
+plt.show()
