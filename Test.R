@@ -16,5 +16,24 @@ dbExecute(
   "
 )
 
-bdalti <- tbl(conn_ddb, "bdalti")
+bdalti <- tbl(conn_ddb, "bdalti") 
 
+
+dbExecute(
+  conn_ddb,
+  "
+  CREATE OR REPLACE VIEW rgealti AS
+  SELECT *
+  FROM read_parquet('s3://oliviermeslin/RGEALTI/RGEALTI_parquet/**/*.parquet')
+  "
+)
+
+rgealti <- tbl(conn_ddb, "rgealti") 
+
+bdalti  |> summarise(nb_bdalti = n() / 1e6, .by = departement) |>
+  left_join(
+rgealti |> summarise(nb_rgealti = n() / 1e6, .by = departement),
+by = "departement"
+) |> 
+  mutate(ratio = nb_rgealti / nb_bdalti) |> 
+  arrange(departement)

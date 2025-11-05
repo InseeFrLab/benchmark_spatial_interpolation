@@ -3,3 +3,4 @@ rawdata/*
 **/*.parquet
 **/*.tif
 **/*.csv
+.Rproj.user
