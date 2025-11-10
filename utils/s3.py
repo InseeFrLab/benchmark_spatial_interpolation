@@ -1,7 +1,6 @@
 import polars as pl
 import os
 import joblib
-from utils import conf_s3
 
 # Connection information for Polars
 storage_options = {
