@@ -8,6 +8,7 @@ dependencies = [
     "gdal[numpy]==3.11.3",
     "gstools>=1.7.0",
     "matplotlib>=3.10.7",
+    "mlflow>=3.6.0",
     "numpy>=2.3.4",
     "pandas>=2.3.3",
     "polars>=1.34.0",
