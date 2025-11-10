@@ -9,6 +9,9 @@ import polars as pl
 from polars import col as c
 import numpy as np
 
+# Module for plots
+import matplotlib.pyplot as plt
+
 # Module to speed up scikit-learn
 from sklearnex import patch_sklearn
 # patch_sklearn()
@@ -31,11 +34,24 @@ datapath = 's3://projet-benchmark-spatial-interpolation/data'
 # Extract one departement
 data = (
     s3.get_df_from_s3(f"{datapath}/real/BDALTI/BDALTI_parquet/")
-    .filter(c.departement == "01")
+    .filter(c.departement == "48")
     .filter(~c.value.is_nan())
     .select("x", "y", "value")
     .collect()
 )
+# %%
+# Plot the data
+# Convert to pandas DataFrame
+# Pivot the data to create a 2D grid for raster plotting
+raster = data.to_pandas().pivot(index='y', columns='x', values='value')
+
+# Plot raster with imshow
+plt.imshow(raster.values, origin='lower', interpolation='none', cmap='viridis')
+plt.colorbar(label='Value')
+plt.xlabel('x')
+plt.ylabel('y')
+plt.title('Raster plot from Polars dataframe')
+plt.show()
 # %%
 # Separate target and features
 X = data.select("x", "y")
