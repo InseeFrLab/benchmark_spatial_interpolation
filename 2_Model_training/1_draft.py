@@ -97,8 +97,12 @@ elapsed_time = end_time - start_time
 print(f"Training time: {elapsed_time:.2f} secondes")
 
 # %%
+# Measure performance
+
+# Specific to random forest: out-of-bag performance
 print(rf_model.oob_score_)
 
+# For all models: performance on the test set
 y_pred = full_model.predict(X_test)
 r2_test = r2_score(y_test, y_pred)
 print(r2_test)
