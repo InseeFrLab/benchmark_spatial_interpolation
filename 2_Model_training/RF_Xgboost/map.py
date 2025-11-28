@@ -2,7 +2,7 @@ import pandas as pd
 import rasterio
 import matplotlib.pyplot as plt
 
-CSV_FILE      = "iceDF_synthetic.csv"      
+CSV_FILE      = "/home/onyxia/work/benchmark_spatial_interpolation/2_Model_training/spaitalheight/iceDF_synthetic.csv"      
 RF_TIF_FILE   = "rf_output_randfor.tif"   
 XGB_TIF_FILE  = "rf_output_xgboost.tif"    
 

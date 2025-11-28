@@ -2,8 +2,8 @@ import pandas as pd
 from random_forest import Regression
 
 def main():
-    iceDF_file = "iceDF_synthetic.csv"   
-    gridDF_file = "gridDF_synthetic.csv"   
+    iceDF_file = "/home/onyxia/work/benchmark_spatial_interpolation/2_Model_training/spaitalheight/iceDF_synthetic.csv"   
+    gridDF_file = "/home/onyxia/work/benchmark_spatial_interpolation/2_Model_training/spaitalheight/gridDF_synthetic.csv"   
     output_tif = "rf_output_xgboost.tif"
 
     iceDF = pd.read_csv(iceDF_file)
