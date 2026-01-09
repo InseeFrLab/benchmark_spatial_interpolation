@@ -18,8 +18,13 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 from polars import col as c
+
+# Apply Intel sklearn acceleration
+from sklearnex import patch_sklearn
+patch_sklearn()
+
 from sklearn.ensemble import (
-    GradientBoostingRegressor,
+    HistGradientBoostingRegressor,
     RandomForestRegressor,
 )
 from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_error
@@ -28,12 +33,9 @@ from sklearn.pipeline import Pipeline
 
 import xgboost
 
-from utils.functions import AddCoordinatesRotation
+from utils.functions import AddCoordinatesRotation, ConvertToPandas
 from utils.s3 import get_df_from_s3
 
-# Apply Intel sklearn acceleration
-from sklearnex import patch_sklearn
-patch_sklearn()
 
 # %%
 # =============================================================================
@@ -45,23 +47,75 @@ MODELS = [
         "name": "random_forest",
         "class": RandomForestRegressor,
         "params": {
-            "n_estimators": 50,
+            "n_estimators": 10,
             "max_features": "sqrt",
             "min_samples_split": 40,
             "min_samples_leaf": 20,
             "random_state": 42,
             "n_jobs": -1,
+            "verbose": 5
         },
     },
     {
-        "name": "gradient_boosting",
-        "class": GradientBoostingRegressor,
+        "name": "random_forest_cr",
+        "class": RandomForestRegressor,
+        "number_axis": 23,
         "params": {
-            "n_estimators": 100,
-            "max_depth": 5,
-            "learning_rate": 0.1,
+            "n_estimators": 10,
+            "max_features": "sqrt",
+            "min_samples_split": 40,
+            "min_samples_leaf": 20,
             "random_state": 42,
+            "n_jobs": -1,
+            "verbose": 5
         },
+    },
+    {
+        "name": "xgboost",
+        "class": xgboost.XGBRegressor,
+        "params": {
+            "n_estimators": 200,
+            "max_depth": 15,
+            "learning_rate": 0.3,
+            "subsample": 1,
+            "colsample_bytree": 1,
+            "objective": "reg:squarederror",
+            "random_state": 42,
+            "max_bin": 2000,
+            "n_jobs": -1,
+        },
+        # "callbacks": [
+        #     {
+        #         "callback": xgboost.callback.EvaluationMonitor(period=5),
+        #         "params": {
+        #             "period": 5
+        #         }
+        #     }
+        # ]
+    },
+    {
+        "name": "xgboost_cr",
+        "class": xgboost.XGBRegressor,
+        "number_axis": 23,
+        "params": {
+            "n_estimators": 200,
+            "max_depth": 15,
+            "learning_rate": 0.3,
+            "subsample": 1,
+            "colsample_bytree": 1,
+            "objective": "reg:squarederror",
+            "random_state": 42,
+            "max_bin": 256,
+            "n_jobs": -1,
+        },
+        # "callbacks": [
+        #     {
+        #         "callback": xgboost.callback.EvaluationMonitor(period=5),
+        #         "params": {
+        #             "period": 5
+        #         }
+        #     }
+        # ]
     },
 ]
 
@@ -83,7 +137,7 @@ METRICS = [
 
 # Pipeline settings
 COORD_ROTATION_AXIS = 23
-TEST_SIZE = 0.2
+TEST_SIZE = 0.9
 RANDOM_STATE = 123456
 
 
@@ -106,6 +160,7 @@ def load_dataset(dataset_config: dict) -> tuple:
         .filter(~c.value.is_nan())
         .select("x", "y", "value")
         .collect()
+        .head(1000000)
     )
 
     # Separate target and features
@@ -115,6 +170,7 @@ def load_dataset(dataset_config: dict) -> tuple:
     # Transform the target
     if "transform" in dataset_config:
         if dataset_config["transform"] == "log":
+            print("The target is log-transformed")
             y = np.log(y)
 
     return train_test_split(X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE)
@@ -122,17 +178,26 @@ def load_dataset(dataset_config: dict) -> tuple:
 
 def run_model(model_config: dict, X_train, X_test, y_train, y_test) -> dict:
     """Train and evaluate a single model."""
+
     # Create model instance
     model = model_config["class"](**model_config["params"])
 
-    # Build pipeline with coordinate rotation
-    pipeline = Pipeline([
-        ("coord_rotation", AddCoordinatesRotation()),
-        ("ml_model", model),
-    ])
-    pipeline.set_params(
-        coord_rotation__coordinates_names=("x", "y"),
-        coord_rotation__number_axis=COORD_ROTATION_AXIS,
+    # Detect if there is coordinate rotation
+    if "number_axis" in model_config:
+        number_axis = model_config["number_axis"]
+    else:
+        number_axis = 1
+
+    # Build the pipeline
+    pipeline = Pipeline(
+        [
+            ("coord_rotation", AddCoordinatesRotation(
+                coordinates_names=("x", "y"),
+                number_axis=number_axis
+            )),
+            ("pandas_converter", ConvertToPandas()),
+            ("ml_model", model),
+        ]
     )
 
     # Train with timing
@@ -204,3 +269,5 @@ def save_results(results: dict, output_dir: str = "results") -> Path:
 if __name__ == "__main__":
     results = run_benchmark(MODELS, DATASETS)
     save_results(results)
+
+# %%
