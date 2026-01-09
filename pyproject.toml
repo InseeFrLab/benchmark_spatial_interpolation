@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "gdal[numpy]==3.11.3",
+    "gdal[numpy]==3.8.4",
     "gstools>=1.7.0",
     "matplotlib>=3.10.7",
     "mlflow>=3.6.0",
