@@ -123,7 +123,7 @@ DATASETS = [
     {
         "name": "bdalti",
         "path": "s3://projet-benchmark-spatial-interpolation/data/real/BDALTI/BDALTI_parquet/",
-        "sample": 0.0001,
+        "sample": 0.005,
         "transform": "log"
     },
     {
