@@ -123,7 +123,7 @@ DATASETS = [
     {
         "name": "bdalti",
         "path": "s3://projet-benchmark-spatial-interpolation/data/real/BDALTI/BDALTI_parquet/",
-        "sample": 50000000,
+        "sample": 0.0001,
         "transform": "log"
     },
     {
@@ -161,7 +161,10 @@ def load_dataset(dataset_config: dict) -> tuple:
         ldf = ldf.filter(pl.col(dataset_config["filter_col"]) == dataset_config["filter_val"])
     if "sample" in dataset_config:
         if isinstance(dataset_config["sample"], float):
-            ldf = ldf.sample(fraction=dataset_config["sample"], seed=20230516)
+            ldf = ldf.filter(
+                pl.linear_space(0, 1, pl.len())
+                .sample(fraction=1, with_replacement=True, shuffle=True) <= dataset_config["sample"]
+            )
         elif isinstance(dataset_config["sample"], int):
             ldf = ldf.sample(n=dataset_config["sample"], seed=20230516)
 
@@ -171,7 +174,7 @@ def load_dataset(dataset_config: dict) -> tuple:
         .filter(~c.value.is_nan())
         .filter(c.value > 0)
         .select("x", "y", "value")
-        .collect()
+        .collect(streaming=True)
     )
 
     # Separate target and features
