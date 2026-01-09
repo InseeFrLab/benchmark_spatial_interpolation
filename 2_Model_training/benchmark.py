@@ -154,10 +154,11 @@ def load_dataset(dataset_config: dict) -> tuple:
     if "filter_col" in dataset_config:
         ldf = ldf.filter(pl.col(dataset_config["filter_col"]) == dataset_config["filter_val"])
 
-    # Remove NaN values and select columns
+    # Remove NaN and negative values and select columns
     df = (
-        ldf
+        lf
         .filter(~c.value.is_nan())
+        .filter(c.value > 0)
         .select("x", "y", "value")
         .collect()
         .head(1000000)
