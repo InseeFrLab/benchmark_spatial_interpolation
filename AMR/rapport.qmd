@@ -1,0 +1,88 @@
+title: "Benchmark Algorithm of Ensemblist Methods on Spatial Data"
+author: "Bianco Andrea, Mancini Matteo, Mellot Rodrigue"
+date: last-modified
+format:
+  pdf:
+    documentclass: article
+    papersize: a4
+    number-sections: true
+    colorlinks: true
+    fig-pos: 'H'
+jupyter: python3
+bibliography: references.bib
+---
+
+# Introduction
+
+# Méthodology
+
+## Algorithms Descriptions
+
+We will compare three algorithms :
+
+1.  **Algorithm A :** 
+2.  **Algorithm B :** 
+3.  **Algorithm C :**
+
+[Image of machine learning model architecture diagram]
+
+## Experience
+
+For each dataset, we will do a cross validation (ex: K-Fold spatial) to evaluate :
+* RMSE (Root Mean Squared Error)
+* MAE (Mean Absolute Error)
+* Executing Time
+
+This will produce a tabular to compare algorithm between them. 
+
+# Dataset
+
+As mentionned previsouly we will use to types of dataset : synthetic and real. Each of them will follows the same construction : $D = \{ (x_i, y_i, v_i) \}_{i=1}^N$.
+
+```{python}
+#| label: setup
+#| echo: false
+#| message: false
+````
+
+## Synthetic Dataset
+
+```{python}
+#| label: fig-synthetic
+#| fig-cap: "Visualisation du jeu de données synthétique (Truth)"
+#| echo: false
+```
+
+## Real dataset
+
+# Results
+
+```{python}
+#| label: training-loop
+#| echo: false
+#| cache: true
+
+```
+
+
+## Plots
+
+```{python}
+#| label: fig-residuals
+#| fig-cap: "Cartographie des erreurs de prédiction sur le jeu de données réel"
+#| echo: false
+#| layout-ncol: 3
+
+```
+
+# Discussion
+
+
+# Conclusion
+
+Ce benchmark a permis de mettre en évidence que pour des données de type $(x, y, target)$, le choix de l'algorithme dépend du compromis souhaité entre précision spatiale et coût de calcul.
+
+# Références
+
+::: {\#refs}
+:::

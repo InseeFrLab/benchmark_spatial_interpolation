@@ -3,4 +3,8 @@
 **/*.parquet
 **/*.tif
 **/*.csv
+**/__pycache__/
 .Rproj.user
+.venv
+uv.lock
+**/*.xlsx

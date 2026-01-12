@@ -1,0 +1,81 @@
+""A Spatial Loss Function for Gradient Boosted Tree""
+
+This paper highlights that common machine learning models, such as Gradient Boosted Trees (LightGBM and XGBoost), achieve strong predictive performance on tabular data 
+but fail to capture spatial autocorrelation, leaving structured residual patterns. Gaussian Processes and Graph Neural Networks can model spatial relationships but suffer from 
+scalability issues or underperform on tabular datasets. To address these weaknesses, the reviewed paper introduces MI-GBT, which integrates Local Moran’s I into the loss function 
+of GBTs, combining prediction error with a spatial autocorrelation penalty. Using a k-nearest-neighbors spatial weights matrix, the method forces the model to learn local spatial 
+dependencies. This approach improves predictive accuracy and significantly reduces residual spatial autocorrelation, outperforming traditional GBTs, Gaussian Processes, and spatial 
+deep learning methods.
+
+
+"Earth and Space Science: A Machine Learning Technique for Spatial Interpolation of Solar Radiation Observations"
+
+The paper presents a machine-learning based interpolation method for spatial data: specifically, it uses a random forest regression model to interpolate missing observations of surface 
+solar radiation across space.  As predictors, the method uses various statistics (means, weighted means, standard deviations, ratios) computed over spatial and temporal neighbourhoods
+around each point. Compared with classical interpolation techniques (which often rely on assumptions about covariance structure), this data-driven approach avoids strong prior assumptions 
+and lets the algorithm learn patterns directly from the data. The resulting interpolated maps are less smoothed and better capture spatial variability; validation shows that the ML-based
+estimates align closely with ground observations, suggesting improved realism and accuracy. In short: the combination of random forests + spatial/temporal neighborhood statistics allows 
+effective spatial interpolation of solar radiation data, overcoming some limits of traditional geostatistical methods. 
+code:  https://github.com/my1396/SSR-Spatial-Interpolation
+
+
+""spatial Height"""
+
+Abstract:
+The study investigates how to predict altitude using interpolation methods with a machine-learning approach based on Random Forest regression. Using elevation data, they test if Random Forest can accurately estimate elevation at unsampled locations. Results show that Random Forest performs similarly to conventional deterministic and geostatistical interpolators. In the Random Forest model, the most important predictors are the points closest to the target location, confirming the strong role of spatial proximity. Overall, improvements from traditional interpolation over Random Forest are small and depend on the geographic area. Even when applying models trained on different regions, performance differences remain limited.
+
+The model starts from points and tries to predict the elevation (Z) at new locations.
+To do this, it builds a Random Forest using many spatial and environmental features, not just coordinates.
+
+Each ICESat-2 point has:
+a location (latitude, longitude)
+a true elevation (from ground-truth DTM)
+the model does not simply use (x, y) → z.
+
+The thesis builds several features that describe how each ICESat-2 point relates to its neighbours.
+
+These include:
+distance to the nearest ICESat-2 point
+height of the nearest neighbour
+height of the second/third/etc. neighbour
+slope/gradient to the neighbours
+relative height differences between neighbours
+All these features come from analysing the local geometry using a KD-tree (a fast spatial search structure).
+
+Why?
+Because Random Forest does not naturally understand spatial continuity.
+So these features “teach” the model the local shape of the terrain.
+
+The model also adds many features extracted from Google Earth Engine datasets, such as:
+
+land cover
+geomorphology type
+vegetation index (NDVI)
+settlement mask
+water mask
+temperature layers
+forest cover change
+These give extra environmental context that might explain elevation differences.
+
+Some features are categorical, so they are converted with one-hot encoding (turning categories into binary columns).
+
+The dataset is split:
+80% training
+20% testing
+Then the Random Forest is trained.
+
+This means:
+Many decision trees are built.
+Each tree looks at different subsets of data and features.
+Each tree makes its own prediction of elevation.
+The forest takes the average of all trees.
+This averaging reduces noise and produces a more stable elevation prediction.
+
+After training, the thesis evaluates which features were most important.
+
+The results show that:
+geometric features — especially the nearest neighbour distance and height — are by far the most influential.
+
+The Random Forest model in the thesis predicts elevation by combining spatial geometry (neighbourhood distances, heights, slopes) with remote-sensing variables, and uses many decision trees to learn how terrain behaves in different environments.
+
+

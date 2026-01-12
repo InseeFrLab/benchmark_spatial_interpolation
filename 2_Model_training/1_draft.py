@@ -1,6 +1,8 @@
 # %%
 import os
+import sys
 import s3fs
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) 
 from utils import s3
 import time
 
