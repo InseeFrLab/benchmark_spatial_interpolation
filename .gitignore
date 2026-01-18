@@ -1,6 +1,22 @@
-**/data/*
-**/rawdata/*
-**/*.parquet
-**/*.tif
-**/*.csv
-.Rproj.user
+# --- Python Artifacts ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.cpython-*.pyc
+
+# --- Virtual Environment (uv) ---
+.venv/
+.python-version
+
+# --- IDE Settings (VS Code) ---
+.vscode/
+.history/
+
+# --- Benchmark Results ---
+# Ignore generated result files (like benchmark_2026-01-18.json)
+benchmark_*.json
+results/
+
+# --- Other ---
+.DS_Store
+.env
