@@ -12,6 +12,7 @@ Extensibility:
 """
 import json
 import time
+import gc  # Added for manual memory cleanup
 from datetime import datetime
 from pathlib import Path
 
@@ -139,8 +140,8 @@ DATASETS = [
         "name": "bdalti",
         "path": "s3://projet-benchmark-spatial-interpolation/data/real/BDALTI/BDALTI_parquet/",
         "sample": 0.005,
-        "transform": "log"
-    },
+        "transform": "log" 
+        },
     {
         "name": "bdalti_48",
         "path": "s3://projet-benchmark-spatial-interpolation/data/real/BDALTI/BDALTI_parquet/",
@@ -148,21 +149,21 @@ DATASETS = [
         "filter_val": "48",
         "sample": 0.4,
         "transform": "log"
-    },
+        },
     {
         "name": "rgealti",
         "path": "s3://projet-benchmark-spatial-interpolation/data/real/RGEALTI/RGEALTI_parquet/",
-        "sample": 0.0005,
-        # "transform": "log" Because it makes it crash
-    },
+        "sample": 0.00001,
+        "transform": "log"
+        },
     {
         "name": "rgealti_48",
         "path": "s3://projet-benchmark-spatial-interpolation/data/real/RGEALTI/RGEALTI_parquet/",
         "filter_col": "departement",
         "filter_val": "48",
-        "sample": 0.04,
-        # "transform": "log" Because it makes it crash
-    },
+        "sample": 0.004,
+        "transform": "log"
+        },
     # --- Synthetic Datasets (New) ---
     {
         "name": "S-G-Sm",
@@ -204,46 +205,55 @@ RANDOM_STATE = 123456
 # =============================================================================
 
 def load_dataset(dataset_config: dict) -> tuple:
-    """Load and preprocess a dataset."""
+    """Load and preprocess a dataset using fixed row limits for heavy data."""
     ldf = get_df_from_s3(dataset_config["path"])
 
-    # FIX: Use collect_schema() to avoid PerformanceWarning
+    # Resolve schema and rename if necessary
     columns = ldf.collect_schema().names()
     if "val" in columns:
         ldf = ldf.rename({"val": "value"})
 
-    # Apply filters if specified
+    # 1. Filters (Predicate Pushdown)
     if "filter_col" in dataset_config:
-        ldf = ldf.filter(pl.col(dataset_config["filter_col"]) == dataset_config["filter_val"])
+        print(f"  Filtering {dataset_config['filter_col']} = {dataset_config['filter_val']}...")
+        ldf = ldf.filter(pl.col(dataset_config["filter_col"]) == str(dataset_config["filter_val"]))
 
-    # FIX: Remove NaN AND values <= 0 to ensure log transform safety
-    # We do this here so the sampling and splitting see clean data
+    # 2. Optimized Sampling/Limiting
+    # For RGEALTI, we use .head() to avoid scanning 22 billion rows
+    if "rgealti" in dataset_config["name"]:
+        # Let's start safe with 100k points. Increase if stable.
+        n_points = 100_000 
+        print(f"  RGEALTI detected: Limiting to {n_points} rows via .head()...")
+        ldf = ldf.head(n_points)
+    elif "sample" in dataset_config:
+        smpl = dataset_config["sample"]
+        print(f"  Sampling with fraction {smpl}...")
+        ldf = ldf.filter(pl.struct(["x"]).map_batches(
+            lambda s: pl.Series(np.random.random(s.len()) < smpl)
+        ))
+
+    # Clean data (ensure value > 0 for log transform)
     ldf = ldf.filter(
-        (~pl.col("value").is_nan()) & (pl.col("value") > 0)
+        (pl.col("value").is_not_null()) & 
+        (pl.col("value").is_not_nan()) & 
+        (pl.col("value") > 0)
     )
 
-    df = (
-        ldf
-        .select("x", "y", "value")
-        .collect()
-    )
-
-    # Sampling
-    if "sample" in dataset_config:
-        if isinstance(dataset_config["sample"], float):
-            df = df.sample(fraction=dataset_config["sample"], seed=20230516)
-        elif isinstance(dataset_config["sample"], int):
-            df = df.sample(n=dataset_config["sample"], seed=20230516)
-
-    # Separate target and features
-    X = df.select("x", "y")
-    y = df.select("value").to_numpy().ravel()
-
-    # Transform the target
+    # 3. Log Transform
     if dataset_config.get("transform") == "log":
-        print("The target is log-transformed")
-        # Since we filtered for value > 0, this is now safe
-        y = np.log(y)
+        print("  Applying log transformation...")
+        ldf = ldf.with_columns(pl.col("value").log())
+
+    # 4. Final Collection
+    print("  Collecting into RAM...")
+    df = ldf.select(["x", "y", "value"]).collect()
+
+    X = df.select(["x", "y"])
+    y = df.select("value").to_numpy().ravel()
+    
+    del df
+    import gc
+    gc.collect()
 
     return train_test_split(X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE)
 
