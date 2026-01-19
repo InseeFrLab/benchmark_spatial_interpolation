@@ -131,19 +131,10 @@ MODELS = [
             "n_jobs": -1,
         },
     },
-    {
-       "name": "oblique_random_forest_cr",
-        "class": ObliqueRandomForestRegressor,
-        "number_axis": 23,
-        "params": {
-            "n_estimators": 50,
-            "random_state": 42,
-            "n_jobs": -1,
-        },
-   },
 ]
 
 DATASETS = [
+    # --- Real Datasets ---
     {
         "name": "bdalti",
         "path": "s3://projet-benchmark-spatial-interpolation/data/real/BDALTI/BDALTI_parquet/",
@@ -157,6 +148,27 @@ DATASETS = [
         "filter_val": "48",
         "sample": 0.4,
         "transform": "log"
+    },
+    # --- Synthetic Datasets (New) ---
+    {
+        "name": "S-G-Sm",
+        "path": "s3://projet-benchmark-spatial-interpolation/data/synthetic/S-G-Sm.parquet",
+        "sample": 1.0, # Use all points for small sets
+    },
+    {
+        "name": "S-G-Lg",
+        "path": "s3://projet-benchmark-spatial-interpolation/data/synthetic/S-G-Lg.parquet",
+        "sample": 0.1, # 1M points is heavy, sample 100k for faster benchmarking
+    },
+    {
+        "name": "S-NG-Sm",
+        "path": "s3://projet-benchmark-spatial-interpolation/data/synthetic/S-NG-Sm.parquet",
+        "sample": 1.0,
+    },
+    {
+        "name": "S-NG-Lg",
+        "path": "s3://projet-benchmark-spatial-interpolation/data/synthetic/S-NG-Lg.parquet",
+        "sample": 0.1,
     },
 ]
 
@@ -181,15 +193,23 @@ def load_dataset(dataset_config: dict) -> tuple:
     """Load and preprocess a dataset."""
     ldf = get_df_from_s3(dataset_config["path"])
 
+    # FIX: Use collect_schema() to avoid PerformanceWarning
+    columns = ldf.collect_schema().names()
+    if "val" in columns:
+        ldf = ldf.rename({"val": "value"})
+
     # Apply filters if specified
     if "filter_col" in dataset_config:
         ldf = ldf.filter(pl.col(dataset_config["filter_col"]) == dataset_config["filter_val"])
 
-    # Remove NaN and negative values and select columns
+    # FIX: Remove NaN AND values <= 0 to ensure log transform safety
+    # We do this here so the sampling and splitting see clean data
+    ldf = ldf.filter(
+        (~pl.col("value").is_nan()) & (pl.col("value") > 0)
+    )
+
     df = (
         ldf
-        .filter(~c.value.is_nan())
-        .filter(c.value > 0)
         .select("x", "y", "value")
         .collect()
     )
@@ -206,10 +226,10 @@ def load_dataset(dataset_config: dict) -> tuple:
     y = df.select("value").to_numpy().ravel()
 
     # Transform the target
-    if "transform" in dataset_config:
-        if dataset_config["transform"] == "log":
-            print("The target is log-transformed")
-            y = np.log(y)
+    if dataset_config.get("transform") == "log":
+        print("The target is log-transformed")
+        # Since we filtered for value > 0, this is now safe
+        y = np.log(y)
 
     return train_test_split(X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE)
 
