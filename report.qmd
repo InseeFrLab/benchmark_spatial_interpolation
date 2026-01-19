@@ -1,0 +1,68 @@
+title: "Benchmark Algorithm of Ensemblist Methods on Spatial Data"
+author: "Bianco Andrea, Mancini Matteo, Mellot Rodrigue"
+date: last-modified
+format:
+  pdf:
+    documentclass: article
+    papersize: a4
+    number-sections: true
+    colorlinks: true
+    fig-pos: 'H'
+jupyter: python3
+bibliography: references.bib
+---
+
+# Introduction
+
+# Methodology
+
+## Algorithms Descriptions
+
+We will compare diffrents algorithms :
+
+1.  **Algorithm A :** 
+2.  **Algorithm B :** 
+3.  **Algorithm C :**
+
+
+## Datasets 
+
+There will be 8 data set to have any comiubiantion of, real or syntetic, grid or no grid, large or small
+
+## Experience
+
+For each dataset, we will do a cross validation (ex: K-Fold spatial) to evaluate :
+* RMSE (Root Mean Squared Error)
+* MAE (Mean Absolute Error)
+* R2
+* Executing Time
+
+This will produce a tabular to compare algorithm between them. 
+
+# Results
+
+## Precision
+
+```{python}
+#| echo: false
+#| cache: true
+
+```
+
+
+## Time
+
+```{python}
+#| label: fig-residuals
+#| echo: false
+
+```
+
+# Discussion
+
+# Conclusion
+
+# References
+
+::: {\#refs}
+:::
