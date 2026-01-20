@@ -139,20 +139,20 @@ SIZE_SMALL = 5_000
 SIZE_LARGE = 100_000
 DATASETS = [
     # --- Real Datasets ---
-    {
-        "name": "bdalti",
-        "path": "s3://projet-benchmark-spatial-interpolation/data/real/BDALTI/BDALTI_parquet/",
-        "target_n": SIZE_LARGE,
-        "transform": "log"
-        },
-    {
-        "name": "bdalti_48",
-        "path": "s3://projet-benchmark-spatial-interpolation/data/real/BDALTI/BDALTI_parquet/",
-        "filter_col": "departement",
-        "filter_val": "48",
-        "target_n": SIZE_SMALL,
-        "transform": "log"
-        },
+#    {
+#        "name": "bdalti",
+#        "path": "s3://projet-benchmark-spatial-interpolation/data/real/BDALTI/BDALTI_parquet/",
+#        "target_n": SIZE_LARGE,
+#        "transform": "log"
+#        },
+#    {
+#        "name": "bdalti_48",
+#        "path": "s3://projet-benchmark-spatial-interpolation/data/real/BDALTI/BDALTI_parquet/",
+#        "filter_col": "departement",
+#        "filter_val": "48",
+#        "target_n": SIZE_SMALL,
+#        "transform": "log"
+#        },
     {
         "name": "rgealti",
         "path": "s3://projet-benchmark-spatial-interpolation/data/real/RGEALTI/RGEALTI_parquet/",
@@ -234,7 +234,7 @@ def load_dataset(dataset_config: dict) -> tuple:
 
     # 3. Optimized Data Fetching (Limit for massive files)
     if "rgealti" in dataset_config["name"]:
-        fetch_limit = target_n * 10 # Buffer for cleaning
+        fetch_limit = target_n # Buffer for cleaning
         print(f"  RGEALTI/Large file detected: Pre-fetching {fetch_limit} rows...")
         ldf = ldf.head(fetch_limit)
 
