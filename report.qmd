@@ -1,0 +1,115 @@
+title: "Benchmark Algorithm of Ensemblist Methods on Spatial Data"
+author: "Bianco Andrea, Mancini Matteo, Mellot Rodrigue"
+date: last-modified
+format:
+  pdf:
+    documentclass: article
+    papersize: a4
+    number-sections: true
+    colorlinks: true
+    fig-pos: 'H'
+jupyter: python3
+bibliography: references.bib
+---
+
+# Introduction
+
+# Methodology
+
+## Algorithms Descriptions
+
+We will compare plenty different algorithms that are commonly used in the literature to solve spatial problems. We will try them with or without coordinates rotation. 
+
+1.  **Random Forest** 
+
+2.  **Gradient Boosting** 
+
+3.  **MI-GBT**
+
+4.  **Oblique Trees**
+
+5.  **GeoSpatial Random Forest**
+
+6.  **Ordinary Kriging**
+
+7.  **Inverse Distance Weighting (IDW)**
+
+8.  **Nearest Neighbor Interpolation**
+
+9.  **Generalized Additive Models (GAM)**
+
+## Datasets
+
+There will be 8 datasets to cover combinations of:
+
+* **Real or Synthetic**
+* **Large or Small**
+* **Grid or No Grid**
+
+For the **synthetic ones**, they are built following the idea that we need some data spatially correlated, be able to respect our different criteria:
+
+* **Spatial Correlation**: We use a **Matérn covariance model** (dimension=2, variance=1, length scale=10) to generate a Stationary Random Field (SRF). This ensures the synthetic data mimics the spatial continuity and "smoothness" often found in real-world environmental phenomena.
+* **Structure**: If there is a grid, points are generated on a regular Cartesian grid using a meshgrid of  and  coordinates. If it's not the case, points are sampled using a*Uniform Random Distribution across the spatial domain to simulate irregular sampling.
+* **Size**: Ranging from 10,000 points for "Small" Datasets to 1,000,000 points for "Large" datasets
+* **Consistency**: A fixed seed (20170519) is applied to both the random field generation and the coordinate sampling to ensure the experiments are fully reproducible across different benchmark runs.
+
+For the **real datasets**, we utilize high-quality topographic data provided by the **IGN (Institut National de l'Information Géographique et Forestière)**, the French national mapping agency. 
+
+* **BD ALTI**: This dataset represents the "unstructured" real-world scenario. The points are derived from various sources (photogrammetry, digitization, etc.) where the spatial distribution of samples is irregular. So we can use this dataset as our no grid, large, real dataset.
+* **RGE ALTI**: It is the highest resolution elevation model available nationally. It is provided as a 5-meter regular grid. The full national dataset contains over 22 billion points. So we can use this dataset as our grid, large, real dataset.
+
+For the Small real-world datasets, we use a subset of the French territory by filtering for Department 48 (Lozère). This department was chosen because its diverse topography—ranging from deep canyons and plateaus to mountainous terrain—offers a representative sample of various geographic challenges for spatial interpolation.
+
+### Dataset Reference Table
+
+| Dataset Name | Origin | Size Category | Structure | Approx. Row Count | Description |
+| --- | --- | --- | --- | --- | --- |
+| **bdalti** | Real | Large | No Grid | ~7,000,000 | BDALTI dataset. |
+| **bdalti_48** | Real | Small | No Grid | ~400,000 | Department 48 (Lozère) subset of BDALTI. |
+| **rgealti** | Real | Large | Grid | ~22,000,000,000 |  RGEALTI. |
+| **rgealti_48** | Real | Small | Grid | ~150,000 | Department 48 subset of RGEALTI. |
+| **S-G-Sm** | Synthetic | Small | Grid | 10,000 |  Structured Grid. |
+| **S-G-Lg** | Synthetic | Large | Grid | 1,000,000 |  Structured Grid. |
+| **S-NG-Sm** | Synthetic | Small | No Grid | 10,000 | 10k points, Uniform Random Distribution. |
+| **S-NG-Lg** | Synthetic | Large | No Grid | 1,000,000 | 1M points, Uniform Random Distribution. |
+
+** Note: For the full RGEALTI, the script currently uses a `.head(1_000_000)` limit to manage the massive 22-billion-row source file.*
+
+## Experience
+
+The goal of the Experience is to benchmark ie. compare these different algorithms. To do that,for each dataset, we will do a cross validation to evaluate :
+
+* RMSE (Root Mean Squared Error)
+* MAE (Mean Absolute Error)
+* R2
+* Executing Time
+
+This will produce a tabular to try to compare algorithm between them. 
+
+# Results
+
+## Precision
+
+```{python}
+#| echo: false
+#| cache: true
+
+```
+
+
+## Time
+
+```{python}
+#| label: fig-residuals
+#| echo: false
+
+```
+
+# Discussion
+
+# Conclusion
+
+# References
+
+::: {\#refs}
+:::

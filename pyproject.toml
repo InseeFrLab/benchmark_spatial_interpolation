@@ -13,7 +13,7 @@ dependencies = [
     "matplotlib>=3.10.7",
     "mlflow>=3.6.0",
     "numba>=0.63.1",
-    "numpy>=2.3.4",
+    "numpy>=2.0.0",
     "pandas>=2.3.3",
     "plotnine>=0.15.2",
     "polars>=1.34.0",
@@ -38,4 +38,6 @@ dependencies = [
     "pykrige>=1.7.0",
     "scikit-gstat>=1.0.0",
     "pygam>=0.9.0",
+    "scikit-learn>=1.5.2", 
+    "treeple>=0.10.3" 
 ]
