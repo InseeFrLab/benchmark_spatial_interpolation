@@ -118,29 +118,31 @@ MODELS = [
         #     }
         # ]
     },
-    {
-        "name": "oblique_random_forest",
-        "class": ObliqueRandomForestRegressor,
-        "params": {
-            "random_state": 42,
-            "n_jobs": -1,
-        },
-        "search_space": {
-            "ml_model__n_estimators": [50, 100],
-            # Oblique trees often need more features per split to find good linear combinations
-            "ml_model__max_features": [1.0, "sqrt"],
-            "ml_model__max_depth": [None, 10, 20],
-            "ml_model__min_samples_leaf": [1, 5, 10],
-        },
-    },
+#    {
+#        "name": "oblique_random_forest",
+#        "class": ObliqueRandomForestRegressor,
+#        "params": {
+#            "random_state": 42,
+#            "n_jobs": -1,
+#        },
+#        "search_space": {
+#            "ml_model__n_estimators": [50, 100],
+#            # Oblique trees often need more features per split to find good linear combinations
+#            "ml_model__max_features": [1.0, "sqrt"],
+#            "ml_model__max_depth": [None, 10, 20],
+#            "ml_model__min_samples_leaf": [1, 5, 10],
+#        },
+#    },
 ]
 
+SIZE_SMALL = 5_000
+SIZE_LARGE = 100_000
 DATASETS = [
     # --- Real Datasets ---
     {
         "name": "bdalti",
         "path": "s3://projet-benchmark-spatial-interpolation/data/real/BDALTI/BDALTI_parquet/",
-        "sample": 0.005,
+        "target_n": SIZE_LARGE,
         "transform": "log"
         },
     {
@@ -148,13 +150,13 @@ DATASETS = [
         "path": "s3://projet-benchmark-spatial-interpolation/data/real/BDALTI/BDALTI_parquet/",
         "filter_col": "departement",
         "filter_val": "48",
-        "sample": 0.4,
+        "target_n": SIZE_SMALL,
         "transform": "log"
         },
     {
         "name": "rgealti",
         "path": "s3://projet-benchmark-spatial-interpolation/data/real/RGEALTI/RGEALTI_parquet/",
-        "sample": 0.00001,
+        "target_n": SIZE_LARGE,
         "transform": "log"
         },
     {
@@ -162,29 +164,29 @@ DATASETS = [
         "path": "s3://projet-benchmark-spatial-interpolation/data/real/RGEALTI/RGEALTI_parquet/",
         "filter_col": "departement",
         "filter_val": "48",
-        "sample": 0.004,
+        "target_n": SIZE_SMALL,
         "transform": "log"
         },
     # --- Synthetic Datasets (New) ---
     {
         "name": "S-G-Sm",
         "path": "s3://projet-benchmark-spatial-interpolation/data/synthetic/S-G-Sm.parquet",
-        "sample": 1.0,  # Use all points for small sets
+        "target_n": SIZE_SMALL,
     },
     {
         "name": "S-G-Lg",
         "path": "s3://projet-benchmark-spatial-interpolation/data/synthetic/S-G-Lg.parquet",
-        "sample": 0.1,  # 1M points is heavy, sample 100k for faster benchmarking
+        "target_n": SIZE_LARGE,
     },
     {
         "name": "S-NG-Sm",
         "path": "s3://projet-benchmark-spatial-interpolation/data/synthetic/S-NG-Sm.parquet",
-        "sample": 1.0,
+        "target_n": SIZE_SMALL,
     },
     {
         "name": "S-NG-Lg",
         "path": "s3://projet-benchmark-spatial-interpolation/data/synthetic/S-NG-Lg.parquet",
-        "sample": 0.1,
+        "target_n": SIZE_LARGE,
     },
 ]
 
@@ -208,8 +210,9 @@ RANDOM_STATE = 123456
 # =============================================================================
 
 def load_dataset(dataset_config: dict) -> tuple:
-    """Load and preprocess a dataset using fixed row limits for heavy data."""
+    """Load and preprocess a dataset to reach a fixed target size with strict cleaning."""
     ldf = get_df_from_s3(dataset_config["path"])
+    target_n = dataset_config.get("target_n", 5_000)
 
     # Resolve schema and rename if necessary
     columns = ldf.collect_schema().names()
@@ -221,39 +224,46 @@ def load_dataset(dataset_config: dict) -> tuple:
         print(f"  Filtering {dataset_config['filter_col']} = {dataset_config['filter_val']}...")
         ldf = ldf.filter(pl.col(dataset_config["filter_col"]) == str(dataset_config["filter_val"]))
 
-    # 2. Optimized Sampling/Limiting
-    # For RGEALTI, we use .head() to avoid scanning 22 billion rows
-    if "rgealti" in dataset_config["name"]:
-        # Let's start safe with 100k points. Increase if stable.
-        n_points = 100_000
-        print(f"  RGEALTI detected: Limiting to {n_points} rows via .head()...")
-        ldf = ldf.head(n_points)
-    elif "sample" in dataset_config:
-        smpl = dataset_config["sample"]
-        print(f"  Sampling with fraction {smpl}...")
-        ldf = ldf.filter(pl.struct(["x"]).map_batches(
-            lambda s: pl.Series(np.random.random(s.len()) < smpl)
-        ))
-
-    # Clean data (ensure value > 0 for log transform)
+    # 2. Initial Cleaning (Remove nulls and non-positive values for log)
     ldf = ldf.filter(
-        (pl.col("value").is_not_null()) &
-        (pl.col("value").is_not_nan()) &
-        (pl.col("value") > 0)
+        (pl.col("value").is_not_null()) & 
+        (pl.col("value") > 0) &
+        (pl.col("x").is_not_null()) &
+        (pl.col("y").is_not_null())
     )
 
-    # 3. Log Transform
+    # 3. Optimized Data Fetching (Limit for massive files)
+    if "rgealti" in dataset_config["name"]:
+        fetch_limit = target_n * 10 # Buffer for cleaning
+        print(f"  RGEALTI/Large file detected: Pre-fetching {fetch_limit} rows...")
+        ldf = ldf.head(fetch_limit)
+
+    # 4. Collection to RAM
+    print(f"  Collecting and sampling to exactly {target_n} rows...")
+    df = ldf.select(["x", "y", "value"]).collect()
+
+    # 5. Log Transform
     if dataset_config.get("transform") == "log":
         print("  Applying log transformation...")
-        ldf = ldf.with_columns(pl.col("value").log())
+        df = df.with_columns(pl.col("value").log())
 
-    # 4. Final Collection
-    print("  Collecting into RAM...")
-    df = ldf.select(["x", "y", "value"]).collect()
+    # 6. CRITICAL: Final Finite Check
+    # This removes any NaNs or Infs created by the log transform or existing in data
+    df = df.filter(
+        pl.col("value").is_finite() & 
+        pl.col("x").is_finite() & 
+        pl.col("y").is_finite()
+    )
+
+    # 7. Exact Sampling
+    if len(df) > target_n:
+        df = df.sample(n=target_n, seed=RANDOM_STATE)
+    
+    print(f"  Final clean dataset size: {len(df)}")
 
     X = df.select(["x", "y"])
     y = df.select("value").to_numpy().ravel()
-
+    
     del df
     gc.collect()
 

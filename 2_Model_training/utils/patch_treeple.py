@@ -1,45 +1,50 @@
-import sklearn.utils.validation
-import treeple.ensemble
-from types import SimpleNamespace
-
+import types
+import sys
 
 def apply_treeple_patch():
     """
-    Update to make it run with new versions of scikit-learn
+    Total override patch. This replaces the problematic method inside 
+    the treeple library's forest class to bypass the immutable tags error.
     """
+    import sklearn.utils.validation
+    from types import SimpleNamespace
 
-    # --- FIX 1: The Weight Checker (Standard & Intel) ---
-    original_func = sklearn.utils.validation._check_sample_weight
-    def patched_check_sample_weight(sample_weight, X, dtype=None, **kwargs):
-        return original_func(sample_weight, X, dtype=dtype, **kwargs)
-    
-    sklearn.utils.validation._check_sample_weight = patched_check_sample_weight
-
-    # --- FIX 2: Treeple internal tree classes ---
-    try:
-        import treeple._lib.sklearn.tree._classes as treeple_tree_classes
-        treeple_tree_classes._check_sample_weight = patched_check_sample_weight
-    except (ImportError, AttributeError):
-        pass
-
-    # --- FIX 3: Tag Fallback with Attribute Access (SimpleNamespace) ---
-    target_class = treeple.ensemble.ObliqueRandomForestRegressor
-    
-    def patched_sklearn_tags(self):
-        # We use SimpleNamespace so that sklearn can use dot notation (tags.requires_fit)
-        # instead of failing on a dictionary.
+    # 1. Define a completely flexible tags object
+    def universal_tags_override(self):
         return SimpleNamespace(
             estimator_type="regressor",
-            requires_fit=True,        # This is the attribute that was missing!
-            multioutput=True,
-            multilabel=False,
-            poor_score=False,
-            no_validation=False,
             requires_y=True,
-            regressor_tags=SimpleNamespace(multi_label=False) # Nested tags
+            requires_fit=True,
+            target_tags=SimpleNamespace(single_output=True, multi_output=False),
+            regressor_tags=SimpleNamespace(multi_label=False), # treeple can write to this now
+            transformer_tags=SimpleNamespace(preserves_dtype=["float64"]),
+            non_deterministic=False,
+            no_validation=False,
+            poor_score=False,
+            multilabel=False
         )
 
-    target_class.__sklearn_tags__ = patched_sklearn_tags
-    
-    print("Treeple-Sklearn compatibility patches active.")
-    
+    # 2. Force the override on the treeple classes
+    # We target the specific file shown in your traceback: treeple/_lib/sklearn/ensemble/_forest.py
+    try:
+        import treeple._lib.sklearn.ensemble._forest as treeple_forest
+        # Override the method on the base class used by ObliqueRandomForest
+        treeple_forest.ForestRegressor.__sklearn_tags__ = universal_tags_override
+        print("Successfully patched treeple.ForestRegressor class.")
+    except Exception as e:
+        print(f"Note: Could not patch treeple ForestRegressor directly: {e}")
+
+    try:
+        import treeple.ensemble
+        treeple.ensemble.ObliqueRandomForestRegressor.__sklearn_tags__ = universal_tags_override
+        print("Successfully patched ObliqueRandomForestRegressor class.")
+    except Exception as e:
+        print(f"Note: Could not patch ObliqueRandomForestRegressor directly: {e}")
+
+    # 3. Handle the Weight Checker (Standard for 1.6+)
+    original_weight_func = sklearn.utils.validation._check_sample_weight
+    def patched_check_sample_weight(sample_weight, X, dtype=None, **kwargs):
+        return original_weight_func(sample_weight, X, dtype=dtype, **kwargs)
+    sklearn.utils.validation._check_sample_weight = patched_check_sample_weight
+
+    print("Treeple-Sklearn compatibility: Total Override Patch Active.")
