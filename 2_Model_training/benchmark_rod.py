@@ -24,13 +24,11 @@ from polars import col as c
 from sklearnex import patch_sklearn
 patch_sklearn()
 
-from sklearn.ensemble import (
-    HistGradientBoostingRegressor,
-    RandomForestRegressor,
-)
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
+from sklearn.model_selection import RandomizedSearchCV
 
 import xgboost
 
@@ -51,43 +49,39 @@ MODELS = [
     {
         "name": "random_forest",
         "class": RandomForestRegressor,
-        "params": {
-            "n_estimators": 50,
-            "max_features": "sqrt",
-            "min_samples_split": 20,
-            "min_samples_leaf": 10,
-            "random_state": 42,
-            "n_jobs": -1,
-            "verbose": 5
+        "params": {"n_jobs": -1, "random_state": 42},
+        "search_space": {
+            "ml_model__n_estimators": [50, 100, 200],
+            "ml_model__max_features": ["sqrt", 1.0],
+            "ml_model__min_samples_leaf": [5, 10, 20],
         },
     },
     {
         "name": "random_forest_cr",
         "class": RandomForestRegressor,
         "number_axis": 23,
-        "params": {
-            "n_estimators": 50,
-            "max_features": "sqrt",
-            "min_samples_split": 20,
-            "min_samples_leaf": 10,
-            "random_state": 42,
-            "n_jobs": -1,
-            "verbose": 5
+        "params": {"n_jobs": -1, "random_state": 42},
+        "search_space": {
+            "ml_model__n_estimators": [50, 100, 200],
+            "ml_model__max_features": ["sqrt", 1.0],
+            "ml_model__min_samples_leaf": [5, 10, 20],
         },
     },
     {
         "name": "xgboost",
         "class": xgboost.XGBRegressor,
         "params": {
-            "n_estimators": 200,
-            "max_depth": 15,
-            "learning_rate": 0.3,
+            "n_jobs": -1,
+            "random_state": 42,
             "subsample": 1,
             "colsample_bytree": 1,
             "objective": "reg:squarederror",
-            "random_state": 42,
-            "max_bin": 2000,
-            "n_jobs": -1,
+            },
+        "search_space": {
+            "ml_model__max_depth": [6, 10, 15],
+            "ml_model__learning_rate": [0.05, 0.1, 0.3],
+            "ml_model__n_estimators": [100, 200],
+            "ml_model__max_bin": [1000, 2000, 5000]
         },
         # "callbacks": [
         #     {
@@ -103,15 +97,17 @@ MODELS = [
         "class": xgboost.XGBRegressor,
         "number_axis": 23,
         "params": {
-            "n_estimators": 200,
-            "max_depth": 15,
-            "learning_rate": 0.3,
+            "n_jobs": -1,
+            "random_state": 42,
             "subsample": 1,
             "colsample_bytree": 1,
             "objective": "reg:squarederror",
-            "random_state": 42,
-            "max_bin": 256,
-            "n_jobs": -1,
+            },
+        "search_space": {
+            "ml_model__max_depth": [6, 10, 15],
+            "ml_model__learning_rate": [0.05, 0.1, 0.3],
+            "ml_model__n_estimators": [100, 200],
+            "ml_model__max_bin": [256, 1000, 2000]
         },
         # "callbacks": [
         #     {
@@ -126,10 +122,15 @@ MODELS = [
         "name": "oblique_random_forest",
         "class": ObliqueRandomForestRegressor,
         "params": {
-            "n_estimators": 50,
-            "max_features": 1.0,  # Oblique trees often benefit from seeing all features per split
             "random_state": 42,
             "n_jobs": -1,
+        },
+        "search_space": {
+            "ml_model__n_estimators": [50, 100],
+            # Oblique trees often need more features per split to find good linear combinations
+            "ml_model__max_features": [1.0, "sqrt"],
+            "ml_model__max_depth": [None, 10, 20],
+            "ml_model__min_samples_leaf": [1, 5, 10],
         },
     },
 ]
@@ -140,7 +141,7 @@ DATASETS = [
         "name": "bdalti",
         "path": "s3://projet-benchmark-spatial-interpolation/data/real/BDALTI/BDALTI_parquet/",
         "sample": 0.005,
-        "transform": "log" 
+        "transform": "log"
         },
     {
         "name": "bdalti_48",
@@ -195,7 +196,9 @@ METRICS = [
 
 # Pipeline settings
 COORD_ROTATION_AXIS = 23
-TEST_SIZE = 0.5
+N_ITER_SEARCH = 5
+CV_FOLDS = 3
+TEST_SIZE = 0.2
 RANDOM_STATE = 123456
 
 
@@ -222,7 +225,7 @@ def load_dataset(dataset_config: dict) -> tuple:
     # For RGEALTI, we use .head() to avoid scanning 22 billion rows
     if "rgealti" in dataset_config["name"]:
         # Let's start safe with 100k points. Increase if stable.
-        n_points = 100_000 
+        n_points = 100_000
         print(f"  RGEALTI detected: Limiting to {n_points} rows via .head()...")
         ldf = ldf.head(n_points)
     elif "sample" in dataset_config:
@@ -234,8 +237,8 @@ def load_dataset(dataset_config: dict) -> tuple:
 
     # Clean data (ensure value > 0 for log transform)
     ldf = ldf.filter(
-        (pl.col("value").is_not_null()) & 
-        (pl.col("value").is_not_nan()) & 
+        (pl.col("value").is_not_null()) &
+        (pl.col("value").is_not_nan()) &
         (pl.col("value") > 0)
     )
 
@@ -250,52 +253,57 @@ def load_dataset(dataset_config: dict) -> tuple:
 
     X = df.select(["x", "y"])
     y = df.select("value").to_numpy().ravel()
-    
+
     del df
-    import gc
     gc.collect()
 
     return train_test_split(X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE)
 
 
 def run_model(model_config: dict, X_train, X_test, y_train, y_test) -> dict:
-    """Train and evaluate a single model."""
+    """Train with Hyperparameter Optimization and evaluate."""
 
-    # Create model instance
-    model = model_config["class"](**model_config["params"])
+    # 1. Basic Setup
+    model_instance = model_config["class"](**model_config["params"])
+    number_axis = model_config.get("number_axis", 1)
 
-    # Detect if there is coordinate rotation
-    if "number_axis" in model_config:
-        number_axis = model_config["number_axis"]
-    else:
-        number_axis = 1
+    # 2. Build Pipeline
+    pipeline = Pipeline([
+        ("coord_rotation", AddCoordinatesRotation(
+            coordinates_names=("x", "y"),
+            number_axis=number_axis
+        )),
+        ("pandas_converter", ConvertToPandas()),
+        ("ml_model", model_instance),
+    ])
 
-    # Build the pipeline
-    pipeline = Pipeline(
-        [
-            ("coord_rotation", AddCoordinatesRotation(
-                coordinates_names=("x", "y"),
-                number_axis=number_axis
-            )),
-            ("pandas_converter", ConvertToPandas()),
-            ("ml_model", model),
-        ]
+    # 3. Setup Random Search
+    # This treats the entire pipeline as the estimator
+    search = RandomizedSearchCV(
+        estimator=pipeline,
+        param_distributions=model_config["search_space"],
+        n_iter=N_ITER_SEARCH,
+        cv=CV_FOLDS,
+        scoring='r2',
+        verbose=1,
+        n_jobs=-1  # Parallelize the CV folds
     )
 
-    # Train with timing
+    # 4. Fit & Time
     start = time.perf_counter()
-    pipeline.fit(X_train, y_train)
+    search.fit(X_train, y_train)
     training_time = time.perf_counter() - start
 
-    # Predict
-    y_pred = pipeline.predict(X_test)
+    # 5. Evaluate Best Model
+    best_pipeline = search.best_estimator_
+    y_pred = best_pipeline.predict(X_test)
 
     # Compute metrics
     metrics = {m["name"]: float(m["func"](y_test, y_pred)) for m in METRICS}
 
     return {
         "model": model_config["name"],
-        "params": model_config["params"],
+        "best_params": search.best_params_,  # Save what was actually chosen
         "training_time": round(training_time, 2),
         **metrics,
     }
