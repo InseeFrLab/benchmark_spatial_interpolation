@@ -5,12 +5,14 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "distgfs>=1.2.0",
     "gdal[numpy]==3.8.4",
     "geostatspy>=0.0.79",
     "gstools>=1.7.0",
     "lightgbm>=4.6.0",
     "matplotlib>=3.10.7",
     "mlflow>=3.6.0",
+    "numba>=0.63.1",
     "numpy>=2.0.0",
     "pandas>=2.3.3",
     "plotnine>=0.15.2",
@@ -27,6 +29,15 @@ dependencies = [
     "tfinterpy>=1.1.1",
     "wheel>=0.45.1",
     "xgboost>=3.1.2",
+    "geopandas>=0.14.4",
+    "joblib>=1.4.0",
+    "mpi4py>=3.1.0",
+    "scipy>=1.13.0",
+    "tqdm>=4.66.4",
+    "urllib3>=2.2.1",
+    "pykrige>=1.7.0",
+    "scikit-gstat>=1.0.0",
+    "pygam>=0.9.0",
     "scikit-learn>=1.5.2", 
     "treeple>=0.10.3" 
 ]
