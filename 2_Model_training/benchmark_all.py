@@ -29,7 +29,9 @@ from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_err
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import RandomizedSearchCV
+from sklearn.neighbors import KNeighborsRegressor  
 
+from utils.migbt import SklearnMIXGBooster
 import xgboost
 
 from utils.kriging_wrapper import PyKrigeWrapper
@@ -39,7 +41,7 @@ from utils.gam_wrapper import PyGAMWrapper
 import sys
 sys.path.append('geoRF')
 from geoRF import GeoRFRegressor
-
+from utils.idw import IDWRegressor 
 from utils.functions import AddCoordinatesRotation, ConvertToPandas
 from utils.s3 import get_df_from_s3
 from utils.patch_treeple import apply_treeple_patch
@@ -141,50 +143,81 @@ MODELS = [
 #            "ml_model__min_samples_leaf": [1, 5, 10],
 #        },
 #    },
+#    {
+#        "name": "geoRF",
+#        "class": GeoRFRegressor,
+#        "number_axis": 23,
+#        "params": {
+#            "n_estimators": 20,         # Number of trees
+#            "max_depth": 10,            # max depth
+#            "min_samples_split": 20,    # Min campioni per split
+#            "max_samples": 0.5,         # Dimensione bootstrap
+#            "max_features": 2,          # Features per split
+#            "oob_score": False,         # Out-of-bag validation
+#            "n_jobs": 1,                # Parallelizzazione
+#            "random_state": 42,         # Seed per riproducibilità
+#       },
+#        "search_space":{},
+#    },
+#    {
+#        "name": "kriging_tuned",
+#        "class": PyKrigeWrapper,
+#        "number_axis": 23,
+#        "params": {
+#            "coordinates_type": "euclidean",            
+#        },
+#        "search_space": {
+#            "ml_model__variogram_model": ["spherical", "exponential", "gaussian", "linear"],
+#            "ml_model__nlags": [4, 6, 10, 15],
+#           "ml_model__weight": [True, False],
+#            "ml_model__anisotropy_scaling": [1.0, 1.5, 2.0],
+#        },
+#    },
+#    {
+#        "name": "gam_tuned",
+#        "class": PyGAMWrapper,
+#        "number_axis": 23,
+#        "params": {
+#        },
+#        "search_space": {
+#            "ml_model__n_splines": [15, 25, 35, 50],
+#            "ml_model__lam": [0.1, 0.6, 2.0, 10.0],
+#            "ml_model__spline_order": [2, 3, 4],
+#            "ml_model__use_tensor_product": [True, False],
+#       },
     {
-        "name": "geoRF",
-        "class": GeoRFRegressor,
-        "number_axis": 23,
+        "name": "knn_3",
+        "class": KNeighborsRegressor,
         "params": {
-            "n_estimators": 20,         # Number of trees
-            "max_depth": 10,            # max depth
-            "min_samples_split": 20,    # Min campioni per split
-            "max_samples": 0.5,         # Dimensione bootstrap
-            "max_features": 2,          # Features per split
-            "oob_score": False,         # Out-of-bag validation
-            "n_jobs": 1,                # Parallelizzazione
-            "random_state": 42,         # Seed per riproducibilità
+            "n_neighbors": 3,
+            "weights": "uniform",
+            "algorithm": "kd_tree", 
+            "leaf_size": 40,        
+            "n_jobs": -1}
         },
-        "search_space":{},
-    },
     {
-        "name": "kriging_tuned",
-        "class": PyKrigeWrapper,
-        "number_axis": 23,
+        "name": "mixgboost",
+        "class": SklearnMIXGBooster,
         "params": {
-            "coordinates_type": "euclidean",            
+            "k": 20,
+            "lamb": 0.05,
+            "learning_rate": 0.1,
+            "n_estimators": 300,
+            "max_depth": 12,
+            "n_jobs": -1}
         },
-        "search_space": {
-            "ml_model__variogram_model": ["spherical", "exponential", "gaussian", "linear"],
-            "ml_model__nlags": [4, 6, 10, 15],
-            "ml_model__weight": [True, False],
-            "ml_model__anisotropy_scaling": [1.0, 1.5, 2.0],
-        },
-    },
+
     {
-        "name": "gam_tuned",
-        "class": PyGAMWrapper,
-        "number_axis": 23,
+        "name": "idw_p3",
+        "class": IDWRegressor,
         "params": {
+            "power": 3,
+            "n_neighbors": 15
         },
-        "search_space": {
-            "ml_model__n_splines": [15, 25, 35, 50],
-            "ml_model__lam": [0.1, 0.6, 2.0, 10.0],
-            "ml_model__spline_order": [2, 3, 4],
-            "ml_model__use_tensor_product": [True, False],
-        },
+
     }
-]
+ ]
+
 
 SIZE_SMALL = 5_000
 SIZE_LARGE = 100_000
@@ -239,6 +272,7 @@ DATASETS = [
         "path": "s3://projet-benchmark-spatial-interpolation/data/synthetic/S-NG-Lg.parquet",
         "target_n": SIZE_LARGE,
     },
+    
 ]
 
 METRICS = [
@@ -459,7 +493,8 @@ def run_benchmark(models: list, datasets: list) -> dict:
                 result = run_model(model, X_train, X_test, y_train, y_test)
                 result["dataset"] = dataset["name"]
                 results.append(result)
-                print(f"    R2: {result['r2_score']:.4f}, Time: {result['training_time']}s")
+                print(f"    R2: {result['r2_score']:.4f} | RMSE: {result['rmse']:.4f} | MAE: {result['mae']:.4f} | Time: {result['training_time']}s")
+
             except Exception as e:
                 # This ensures one model failing doesn't stop the whole benchmark
                 print(f"    ERROR training {model['name']}: {type(e).__name__}: {e}")
