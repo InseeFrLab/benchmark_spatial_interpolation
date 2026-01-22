@@ -41,4 +41,5 @@ dependencies = [
     "pygam>=0.9.0",
     "scikit-learn>=1.5.2",
     "treeple>=0.10.3",
+    "seaborn>=0.13.2",
 ]

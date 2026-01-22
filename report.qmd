@@ -84,28 +84,122 @@ The goal of the Experience is to benchmark ie. compare these different algorithm
 * R2
 * Executing Time
 
-This will produce a tabular to try to compare algorithm between them. 
-
 # Results
 
-## Precision
+This section presents the empirical findings of our benchmark, focusing on predictive precision across metrics and computational efficiency.
+
+## Performance Metrics Summary
+
+The following table summarizes the average performance across all datasets. We observe that **Coordinate Rotation (CR)** significantly improves the predictive power of axis-aligned learners.
 
 ```{python}
 #| echo: false
-#| cache: true
+#| label: tbl-summary
+#| tbl-cap: "Mean Performance Metrics across all Datasets"
+
+import json
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Load the benchmark results
+file_path = "/home/onyxia/work/benchmark_spatial_interpolation/results/benchmark_no_cv_20260122.json"
+
+with open(file_path, 'r') as f:
+    data = json.load(f)
+
+df = pd.DataFrame(data['results'])
+
+# Data cleaning and feature engineering
+df['CR'] = df['model'].apply(lambda x: "Yes" if x.endswith('_cr') else "No")
+df['Algorithm'] = df['model'].str.replace('_cr', '').str.replace('_', ' ').str.title()
+
+# Summary Table
+summary = df.groupby(['Algorithm', 'CR'])[['r2_score', 'rmse', 'mae', 'training_time']].mean().reset_index()
+summary.columns = ['Algorithm', 'CR', 'Mean R²', 'Mean RMSE', 'Mean MAE', 'Time (s)']
+summary.sort_values('Mean R²', ascending=False).round(4)
 
 ```
 
+## Comparative Analysis of Predictive Power
 
-## Time
+The following visualizations compare the precision of the models. The first two plots illustrate the distribution of  and RMSE, highlighting the "lift" provided by coordinate rotation.
 
 ```{python}
-#| label: fig-residuals
 #| echo: false
+#| label: fig-precision
+#| fig-cap: "Distribution of R² and RMSE across all models and datasets."
+#| fig-subcap: 
+#|   - "R² Score Comparison"
+#|   - "RMSE Comparison"
+#| layout-ncol: 2
+
+sns.set_theme(style="whitegrid")
+
+# Plot 1: R2 Score
+plt.figure(figsize=(10, 6))
+sns.barplot(data=df, x='Algorithm', y='r2_score', hue='CR', palette='viridis')
+plt.title('R² Score Comparison (CR vs. Standard)')
+plt.xticks(rotation=45)
+plt.ylabel('R² Score')
+plt.show()
+
+# Plot 2: RMSE
+plt.figure(figsize=(10, 6))
+sns.barplot(data=df, x='Algorithm', y='rmse', hue='CR', palette='magma')
+plt.title('RMSE Comparison (Lower is Better)')
+plt.xticks(rotation=45)
+plt.ylabel('RMSE')
+plt.show()
 
 ```
 
-# Discussion
+The third plot measures the specific impact of Coordinate Rotation by calculating the delta () in  score ().
+
+```{python}
+#| echo: false
+#| label: fig-cr-delta
+#| fig-cap: "Impact of Coordinate Rotation on Predictive Performance (Delta R²)."
+
+# Pivot to calculate Delta
+df_pivot = df.pivot_table(index=['dataset', 'Algorithm'], columns='CR', values='r2_score').reset_index()
+df_pivot['R2 Delta'] = df_pivot['Yes'] - df_pivot['No']
+
+plt.figure(figsize=(10, 5))
+sns.boxplot(data=df_pivot, x='Algorithm', y='R2 Delta', color='skyblue')
+plt.axhline(0, color='red', linestyle='--')
+plt.title('Coordinate Rotation Impact: ΔR²')
+plt.ylabel('Change in R² Score')
+plt.xticks(rotation=45)
+plt.show()
+
+```
+
+## Computational Efficiency
+
+The training time is a critical bottleneck for large-scale spatial interpolation. @fig-training-time illustrates the execution time on a log scale, highlighting the extreme cost of models like GAM with CR compared to efficient neighbors like KNN.
+
+```{python}
+#| echo: false
+#| label: fig-training-time
+#| fig-cap: "Training Time Comparison on Large Datasets (Log Scale)."
+
+plt.figure(figsize=(10, 6))
+# Filter for large datasets to show scaling
+df_lg = df[df['dataset'].str.contains('Lg')]
+
+sns.barplot(data=df_lg, x='model', y='training_time', palette='coolwarm')
+plt.yscale('log')
+plt.title('Training Time (Dataset: Large, Log Scale)')
+plt.ylabel('Time (seconds)')
+plt.xticks(rotation=90)
+plt.show()
+
+```
+
+## Discussion of Findings
+ BLABLABLA
 
 # Conclusion
 

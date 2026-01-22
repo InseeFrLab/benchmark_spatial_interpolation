@@ -295,12 +295,22 @@ def load_dataset(dataset_config: dict) -> tuple:
 
 
 def run_model(model_config: dict, X_train, X_test, y_train, y_test) -> dict:
+    """Train and evaluate models, skipping GeoRF on large datasets for efficiency."""
+
     params = model_config.get("params", {}).copy()
+    model_name = model_config["name"]
+    avoid_big_set = ("georf" in model_name) or ("kriging" in model_name)
+    is_georf = "georf" in model_name
+
+    # --- Logic: Skip GeoRF if dataset is too large ---
+    LARGE_THRESHOLD = 20_000
+    if avoid_big_set and len(X_train) > LARGE_THRESHOLD:
+        print(f"    [SKIP] {model_name}: Dataset too large ({len(X_train)} rows).")
+        return None
+
     model_instance = model_config["class"](**params)
-    
-    # Defaults to 1 if not specified
     number_axis = model_config.get("number_axis", 1)
-    
+ 
     pipeline = Pipeline([
         ("coord_rotation", AddCoordinatesRotation(
             coordinates_names=("x", "y"),
@@ -311,20 +321,26 @@ def run_model(model_config: dict, X_train, X_test, y_train, y_test) -> dict:
     ])
 
     start = time.perf_counter()
-    if "geoRF" in model_config["name"]:
+
+    if is_georf:
+        # GeoRF specific fit parameter
         pipeline.fit(X_train, y_train, ml_model__gens="da")
     else:
         pipeline.fit(X_train, y_train)
-    
+
     training_time = time.perf_counter() - start
     y_pred = pipeline.predict(X_test)
-    
+
+    # Compute metrics
     metrics = {m["name"]: float(m["func"](y_test, y_pred)) for m in METRICS}
+
     return {
-        "model": model_config["name"],
+        "model": model_name,
+        "best_params": params,
         "training_time": round(training_time, 2),
         **metrics,
     }
+
 
 def run_benchmark(models: list, datasets: list) -> dict:
     results = []
