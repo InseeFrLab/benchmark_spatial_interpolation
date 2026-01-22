@@ -193,12 +193,12 @@ DATASETS = [
         "target_n": SIZE_SMALL,
         "transform": "log"
         },
-    {
-        "name": "rgealti",
-        "path": "s3://projet-benchmark-spatial-interpolation/data/real/RGEALTI/RGEALTI_parquet/",
-        "target_n": SIZE_LARGE,
-        "transform": "log"
-        },
+#    {
+#        "name": "rgealti",
+#        "path": "s3://projet-benchmark-spatial-interpolation/data/real/RGEALTI/RGEALTI_parquet/",
+#        "target_n": SIZE_LARGE,
+#        "transform": "log"
+#        },
     {
         "name": "rgealti_48",
         "path": "s3://projet-benchmark-spatial-interpolation/data/real/RGEALTI/RGEALTI_parquet/",

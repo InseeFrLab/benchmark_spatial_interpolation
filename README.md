@@ -1,13 +1,11 @@
 # A benchmark of ensemble methods for spatial interpolation on large datasets
 
-To produce the benchmark : 
+To produce the benchmark, open the terminal and then :
 
-1) cd benchmark_spatial_interpolation/
+cd benchmark_spatial_interpolation/ 
+chmod +x init.sh
+./init.sh
+chmod +x benchmark.sh
+./benchmark.sh
 
-2) Authorize to write with chmod +x init.sh
-Then run : ./init.sh
-
-3) Authorize to write with chmod +x benchmark.sh
-Then run : ./benchmark.sh
-
-You can look at the report on s3 ! 
+You can have a look at the report in s3 ! 
