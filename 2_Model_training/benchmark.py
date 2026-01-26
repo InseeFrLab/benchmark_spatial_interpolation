@@ -266,7 +266,7 @@ def load_dataset(dataset_config: dict) -> tuple:
     print(f"  Final clean dataset size: {len(df)}")
 
     X = df.select(["x", "y"])
-    y = df.select("value").to_numpy().ravel()
+    y = df.select("value").to_numpy().ravel().astype(float)
 
     del df
     gc.collect()
@@ -279,7 +279,7 @@ def run_model(model_config: dict, X_train, X_test, y_train, y_test) -> dict:
 
     params = model_config.get("params", {}).copy()
     model_name = model_config["name"]
-    avoid_big_set = ("geoRF" in model_name) or ("kriging" in model_name)
+    avoid_big_set = ("geoRF" in model_name) or ("kriging" in model_name) or ("gam" in model_name)
 
     # --- Logic: Skip for slow algorithm if dataset is too large ---
     LARGE_THRESHOLD = 10_000
@@ -331,11 +331,12 @@ def run_benchmark(models: list, datasets: list) -> dict:
             print(f"  Training: {model['name']}...")
             try:
                 result = run_model(model, X_train, X_test, y_train, y_test)
-                result["dataset"] = dataset["name"]
-                results.append(result)
-                print(f"    R2: {result['r2_score']:.4f} | Time: {result['training_time']}s")
+                if result is not None:
+                    result["dataset"] = dataset["name"]
+                    results.append(result)
+                    print(f"    R2: {result['r2_score']:.4f} | Time: {result['training_time']}s")
             except Exception as e:
-                print(f"    ERROR: {e}")
+                print(f"    ERROR training {model['name']}: {e}")
                 continue
 
     return {
