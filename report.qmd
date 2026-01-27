@@ -1,28 +1,44 @@
+---
 title: "Benchmark Algorithm of Ensemblist Methods on Spatial Data"
-author: "Bianco Andrea, Mancini Matteo, Mellot Rodrigue"
+author:
+  - "Bianco Andrea"
+  - "Mancini Matteo"
+  - "Mellot Rodrigue"
 date: last-modified
+
 format:
+  html:
+    toc: true
+    number-sections: true
   pdf:
     documentclass: article
     papersize: a4
     number-sections: true
     colorlinks: true
-    fig-pos: 'H'
+    fig-pos: "H"
+
 jupyter: python3
 bibliography: references.bib
+
+execute:
+  enabled: true
 ---
 
 # Introduction
 
+Purpose: Introduce the spatial interpolation problem, state what algorithms we're comparing (10 methods across 3 paradigms), describe our benchmark setup (8 datasets), and preview the key surprising findings (simple methods outperform ML).
+
 # Methodology
+
+Purpose: Explain our experimental design. This section describes the algorithms we test, how we categorize them into families (deterministic, geostatistical, ML), what datasets we use (8 combinations of real/synthetic, large/small, grid/no-grid), and how we evaluate performance (metrics: R², RMSE, MAE, training time).
 
 ## Algorithms Descriptions
 
-We will compare plenty different algorithms that are commonly used in the literature to solve spatial problems. We will try them with or without coordinates rotation. 
+We will compare plenty different algorithms that are commonly used in the literature to solve spatial problems. We will try them with or without coordinates rotation.
 
-1.  **Random Forest** 
+1.  **Random Forest**
 
-2.  **Gradient Boosting** 
+2.  **Gradient Boosting**
 
 3.  **MI-GBT**
 
@@ -38,51 +54,61 @@ We will compare plenty different algorithms that are commonly used in the litera
 
 9.  **Generalized Additive Models (GAM)**
 
+### Conceptual Classification
+
+Purpose: Provide a high-level taxonomy of the 10 algorithms before detailed descriptions. Create a table categorizing methods into 3 paradigms (Deterministic, Geostatistical, Machine Learning) showing their key principles and whether they have spatial awareness. This helps readers understand the conceptual differences between algorithm families.
+
+### Coordinate Rotation Technique
+
+Purpose: Explain what Coordinate Rotation (CR) is, why tree-based models need it (they make axis-aligned splits that create rectangular boundaries, bad for geographic data), and how it works mathematically (rotate coordinates by multiple angles to allow oblique splits). Include the rotation formulas in LaTeX.
+
 ## Datasets
 
 There will be 8 datasets to cover combinations of:
 
-* **Real or Synthetic**
-* **Large or Small**
-* **Grid or No Grid**
+-   **Real or Synthetic**
+-   **Large or Small**
+-   **Grid or No Grid**
 
 For the **synthetic ones**, they are built following the idea that we need some data spatially correlated, be able to respect our different criteria:
 
-* **Spatial Correlation**: We use a **Matérn covariance model** (dimension=2, variance=1, length scale=10) to generate a Stationary Random Field (SRF). This ensures the synthetic data mimics the spatial continuity and "smoothness" often found in real-world environmental phenomena.
-* **Structure**: If there is a grid, points are generated on a regular Cartesian grid using a meshgrid of  and  coordinates. If it's not the case, points are sampled using a*Uniform Random Distribution across the spatial domain to simulate irregular sampling.
-* **Size**: Ranging from 10,000 points for "Small" Datasets to 1,000,000 points for "Large" datasets
-* **Consistency**: A fixed seed (20170519) is applied to both the random field generation and the coordinate sampling to ensure the experiments are fully reproducible across different benchmark runs.
+-   **Spatial Correlation**: We use a **Matérn covariance model** (dimension=2, variance=1, length scale=10) to generate a Stationary Random Field (SRF). This ensures the synthetic data mimics the spatial continuity and "smoothness" often found in real-world environmental phenomena.
+-   **Structure**: If there is a grid, points are generated on a regular Cartesian grid using a meshgrid of and coordinates. If it's not the case, points are sampled using a\*Uniform Random Distribution across the spatial domain to simulate irregular sampling.
+-   **Size**: Ranging from 10,000 points for "Small" Datasets to 1,000,000 points for "Large" datasets
+-   **Consistency**: A fixed seed (20170519) is applied to both the random field generation and the coordinate sampling to ensure the experiments are fully reproducible across different benchmark runs.
 
-For the **real datasets**, we utilize high-quality topographic data provided by the **IGN (Institut National de l'Information Géographique et Forestière)**, the French national mapping agency. 
+For the **real datasets**, we utilize high-quality topographic data provided by the **IGN (Institut National de l'Information Géographique et Forestière)**, the French national mapping agency.
 
-* **BD ALTI**: This dataset represents the "unstructured" real-world scenario. The points are derived from various sources (photogrammetry, digitization, etc.) where the spatial distribution of samples is irregular. So we can use this dataset as our no grid, large, real dataset.
-* **RGE ALTI**: It is the highest resolution elevation model available nationally. It is provided as a 5-meter regular grid. The full national dataset contains over 22 billion points. So we can use this dataset as our grid, large, real dataset.
+-   **BD ALTI**: This dataset represents the "unstructured" real-world scenario. The points are derived from various sources (photogrammetry, digitization, etc.) where the spatial distribution of samples is irregular. So we can use this dataset as our no grid, large, real dataset.
+-   **RGE ALTI**: It is the highest resolution elevation model available nationally. It is provided as a 5-meter regular grid. The full national dataset contains over 22 billion points. So we can use this dataset as our grid, large, real dataset.
 
 For the Small real-world datasets, we use a subset of the French territory by filtering for Department 48 (Lozère). This department was chosen because its diverse topography—ranging from deep canyons and plateaus to mountainous terrain—offers a representative sample of various geographic challenges for spatial interpolation.
 
 ### Dataset Reference Table
 
 | Dataset Name | Origin | Size Category | Structure | Approx. Row Count | Description |
-| --- | --- | --- | --- | --- | --- |
-| **bdalti** | Real | Large | No Grid | ~7,000,000 | BDALTI dataset. |
-| **bdalti_48** | Real | Small | No Grid | ~400,000 | Department 48 (Lozère) subset of BDALTI. |
-| **rgealti** | Real | Large | Grid | ~22,000,000,000 |  RGEALTI. |
-| **rgealti_48** | Real | Small | Grid | ~150,000 | Department 48 subset of RGEALTI. |
-| **S-G-Sm** | Synthetic | Small | Grid | 10,000 |  Structured Grid. |
-| **S-G-Lg** | Synthetic | Large | Grid | 1,000,000 |  Structured Grid. |
+|------------|------------|------------|------------|------------|------------|
+| **bdalti** | Real | Large | No Grid | \~7,000,000 | BDALTI dataset. |
+| **bdalti_48** | Real | Small | No Grid | \~400,000 | Department 48 (Lozère) subset of BDALTI. |
+| **rgealti** | Real | Large | Grid | \~22,000,000,000 | RGEALTI. |
+| **rgealti_48** | Real | Small | Grid | \~150,000 | Department 48 subset of RGEALTI. |
+| **S-G-Sm** | Synthetic | Small | Grid | 10,000 | Structured Grid. |
+| **S-G-Lg** | Synthetic | Large | Grid | 1,000,000 | Structured Grid. |
 | **S-NG-Sm** | Synthetic | Small | No Grid | 10,000 | 10k points, Uniform Random Distribution. |
 | **S-NG-Lg** | Synthetic | Large | No Grid | 1,000,000 | 1M points, Uniform Random Distribution. |
 
-** Note: For the full RGEALTI, the script currently uses a `.head(1_000_000)` limit to manage the massive 22-billion-row source file.*
+\*\* Note: For the full RGEALTI, the script currently uses a `.head(1_000_000)` limit to manage the massive 22-billion-row source file.\*
 
 ## Experience
 
+Purpose: Describe the experimental protocol. Explain that we use cross-validation to compare algorithms, specify the evaluation metrics we compute (R², RMSE, MAE, training time), and clarify that we test each algorithm on all 8 datasets with and without Coordinate Rotation.
+
 The goal of the Experience is to benchmark ie. compare these different algorithms. To do that,for each dataset, we will do a cross validation to evaluate :
 
-* RMSE (Root Mean Squared Error)
-* MAE (Mean Absolute Error)
-* R2
-* Executing Time
+-   RMSE (Root Mean Squared Error)
+-   MAE (Mean Absolute Error)
+-   R2
+-   Executing Time
 
 # Results
 
@@ -124,7 +150,7 @@ summary.sort_values('Mean R²', ascending=False).round(4)
 
 ## Comparative Analysis of Predictive Power
 
-The following visualizations compare the precision of the models. The first two plots illustrate the distribution of  and RMSE, highlighting the "lift" provided by coordinate rotation.
+The following visualizations compare the precision of the models. The first two plots illustrate the distribution of and RMSE, highlighting the "lift" provided by coordinate rotation.
 
 ```{python}
 #| echo: false
@@ -155,7 +181,7 @@ plt.show()
 
 ```
 
-The third plot measures the specific impact of Coordinate Rotation by calculating the delta () in  score ().
+The third plot measures the specific impact of Coordinate Rotation by calculating the delta () in score ().
 
 ```{python}
 #| echo: false
@@ -198,12 +224,44 @@ plt.show()
 
 ```
 
-## Discussion of Findings
- BLABLABLA
+## Findings by Algorithm Family
+
+Purpose: Analyze results grouped by algorithm type (Deterministic, Geostatistical, Tree-Based ML, Advanced Spatial, GAM). For each family, present their performance numbers, explain why they performed that way, and identify their strengths/weaknesses. This reveals patterns like "simple methods won" and "XGBoost needs CR".
+
+### Deterministic Methods
+
+Present IDW and KNN results showing they achieved the highest R² scores (0.94) with ultra-fast computation (25-37ms). Explain why simple distance-based methods unexpectedly outperformed sophisticated ML (strong local autocorrelation, smooth elevation data). Highlight their practical value for production systems.
+
+### Geostatistical Methods
+
+Purpose: Analyze Kriging performance showing it has the best RMSE/MAE (0.142/0.105) despite moderate R² (0.935). Explain the Kriging-CR paradox (CR actually degraded performance). Emphasize Kriging's value when uncertainty quantification is needed and why RMSE/MAE matter more than R² for this method.
+
+### Tree-Based Ensemble Methods
+
+Purpose: Compare RF, XGBoost, Mixgboost, and Oblique RF showing dramatic CR impact differences. Highlight XGBoost's complete failure without CR (R²=0.34) and rescue with CR (R²=0.90, +163% improvement). Show RF benefits moderately (+4%) while Oblique RF benefits minimally. Conclude that CR is essential for standard tree-based methods on spatial data.
+
+### Advanced Spatial Methods
+
+Purpose: Analyze Oblique RF/GeoRF performance showing moderate results (R²=0.91-0.92) despite being designed for spatial data. Explain that CR caused 13x slowdown with minimal accuracy gain (+1.3%). Discuss why these specialized methods didn't outperform simpler approaches despite their geometric awareness capabilities.
+
+### GAM
+
+Purpose: Document GAM's poor performance (R²=0.66-0.69, worst among all methods) and extreme computational cost (36 seconds with CR). Discuss possible causes of failure (insufficient basis dimension, suboptimal smoothing parameter, dataset characteristics). Conclude that GAM is not suitable for this task without extensive hyperparameter tuning.
+
+## Cross-Cutting Analysis
+### Speed-Accuracy Trade-offs
+### Scalability Analysis
+### Multi-Dimensional Comparison
+### Uncertainty Quantification
+### Grid vs No-Grid Performance
 
 # Conclusion
 
+Purpose: Summarize the 3-4 most important take-home messages from the benchmark (simple methods win, CR is essential for tree-based ML, Kriging has best errors, practical guidelines for model selection). Briefly mention limitations (missing MI-GBT, hyperparameter tuning) and suggest future work directions.
+
 # References
+
+Purpose: List all academic papers, books, and technical documentation cited throughout the report. Use proper citation format (BibTeX entries in references.bib file). Include key sources like Tobler's Law, algorithm papers (Breiman for RF, Chen for XGBoost), Kriging textbooks, and dataset documentation (IGN sources).
 
 ::: {\#refs}
 :::

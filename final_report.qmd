@@ -1,0 +1,266 @@
+---
+title: "Benchmark Algorithm of Ensemblist Methods on Spatial Data"
+author:
+  - "Bianco Andrea"
+  - "Mancini Matteo"
+  - "Mellot Rodrigue"
+date: last-modified
+
+format:
+  html:
+    toc: true
+    number-sections: true
+  pdf:
+    documentclass: article
+    papersize: a4
+    number-sections: true
+    colorlinks: true
+    fig-pos: "H"
+
+jupyter: python3
+bibliography: references.bib
+
+execute:
+  enabled: true
+---
+
+# Abstract
+
+Brief summary of the project, including:
+- the spatial interpolation problem,
+- the benchmarked methods,
+- the experimental design,
+- the main empirical results,
+- and the key conclusions.
+
+(Approx. 200–250 words.)
+
+# Introduction
+
+## Context
+
+Introduce the spatial interpolation problem and its importance in environmental and geospatial applications.
+
+## Research Question
+
+Which algorithms perform best for spatial interpolation under different data-generating conditions?
+
+## Motivation
+
+Explain why comparing classical, geostatistical and machine learning approaches is relevant.
+
+## Main Contributions
+
+Summarize the main empirical and methodological contributions of the report.
+
+## Structure of the Report
+
+Brief description of the structure of the report.
+
+# Datasets
+
+## Experimental Design
+
+Description of the $2 \times 2 \times 2$ experimental design:
+- Real vs Synthetic  
+- Small vs Large  
+- Grid vs No-Grid
+- With and Without Coordinate Rotation  
+
+Total of eight datasets.
+
+## Synthetic Datasets
+
+### Data Generation Process
+
+How synthetic datasets has been generated 
+
+### Parameters
+
+- Spatial dimension: 2  
+- Variance: 1  
+- Length scale: 10  
+
+### Reproducibility
+
+Random seed fixed to ensure reproducibility.
+
+## Real Datasets
+
+### BDALTI (IGN)
+
+Unstructured elevation dataset.
+
+### RGEALTI (IGN)
+
+Structured elevation dataset with a spatial grid.
+
+### Department Selection
+
+Department 48 (Lozère) used for small-scale real datasets.
+
+## Summary Table of Datasets
+
+Table summarizing all datasets and their main characteristics.
+
+# Methodology
+
+## General Framework
+
+Overview of the benchmarking framework and experimental pipeline.
+
+## Algorithms Considered
+
+|                                             |                                   |
+|---------------------------------------------|-----------------------------------|
+| A) Generalized Additive Models (GAM)        | F) Nearest Neighbor Interpolation |
+| B) GeoSpatial Random Forest                 | G) Oblique Random Forest          |
+| C) Gradient Boosting (HistGradientBoosting) | H) Ordinary Kriging               |
+| D) Inverse Distance Weighting (IDW)         | I) Random Forest                  |
+| E) MixGBoost                                | J) XGBoost                        |
+
+
+## Conceptual Comparison of Methods
+
+Discussion of:
+- Deterministic vs geostatistical vs machine learning methods  
+- Local vs global approaches  
+- Computational complexity  
+- Interpretability  
+
+## Coordinate Rotation
+
+### Motivation
+
+Tree-based models rely on axis-aligned splits, which are suboptimal for spatial data.
+
+### Method
+
+Application of coordinate rotations to enable oblique decision boundaries.
+
+### Mathematical Formulation
+
+$$
+x' = x \cos(\theta) - y \sin(\theta)
+$$
+
+$$
+y' = x \sin(\theta) + y \cos(\theta)
+$$
+
+### Implementation Details
+
+- Number of rotations  
+- Distribution of angles  
+
+## Evaluation Metrics
+
+- $R^2$  
+- RMSE  
+- MAE  
+- Training time  
+
+## Experimental Setup
+
+- Train/test split  
+- Random seed  
+- Preprocessing steps  
+- Hardware and software environment  
+
+# Results
+
+## Overall Performance
+
+Global comparison of all algorithms across datasets.
+
+## Results by Algorithm Family
+
+### Deterministic Methods
+
+Analysis of IDW and nearest-neighbor interpolation.
+
+### Geostatistical Methods
+
+Analysis of Ordinary Kriging and related findings.
+
+### Tree-Based Machine Learning Methods
+
+Performance of Random Forest, Gradient Boosting, XGBoost and MixGBoost.
+
+### Advanced Spatial Tree Methods
+
+GeoSpatial RF and Oblique RF results.
+
+### Generalized Additive Models
+
+Performance and computational considerations.
+
+## Cross-Dataset Analysis
+
+### Effect of Coordinate Rotation
+
+Comparison of results with and without rotation.
+
+### Grid vs No-Grid Datasets
+
+Impact of spatial structure on performance.
+
+### Scalability
+
+Performance comparison on small vs large datasets.
+
+# Discussion
+
+## Interpretation of Results
+
+Explanation of observed performance patterns.
+
+## Practical Implications
+
+Guidelines for practitioners choosing interpolation methods.
+
+## Limitations
+
+Discussion of methodological and computational limitations.
+
+## Future Work
+
+Possible extensions and improvements.
+
+# Conclusion
+
+Summary of key findings and contributions.
+
+# References
+
+All references cited in the report.
+
+# Appendix A: Detailed Results
+
+## Synthetic Small Grid
+
+Detailed tables and figures.
+
+## Synthetic Small No-Grid
+
+Detailed tables and figures.
+
+## Synthetic Large Grid
+
+Detailed tables and figures.
+
+## Synthetic Large No-Grid
+
+Detailed tables and figures.
+
+## Real Small Datasets
+
+Detailed tables and figures.
+
+## Real Large Datasets
+
+Detailed tables and figures.
+
+# Appendix B: Algorithm Parameters
+
+Detailed hyperparameter settings for each algorithm.
