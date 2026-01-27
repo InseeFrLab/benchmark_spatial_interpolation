@@ -334,7 +334,7 @@ def run_benchmark(models: list, datasets: list) -> dict:
                 if result is not None:
                     result["dataset"] = dataset["name"]
                     results.append(result)
-                    print(f"    R2: {result['r2_score']:.4f} | Time: {result['training_time']}s")
+                    print(f"    R2: {result['r2_score']:.4f} |RMSE:{result['rmse']:.4f}| MAE:{result['mae']:4f} | Time: {result['training_time']}s")
             except Exception as e:
                 print(f"    ERROR training {model['name']}: {e}")
                 continue

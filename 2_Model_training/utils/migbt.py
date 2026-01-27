@@ -16,7 +16,7 @@ def calc_w_sparse_fast(data, k=5):
     n_samples = data.shape[0]
     weight_value = 1.0 / k
     
-    # Costruzione CSR Matrix
+    #  CSR Matrix construction
     rows = np.repeat(np.arange(n_samples), k)
     cols = indices.flatten()
     weights = np.full(rows.shape, weight_value, dtype=np.float32)

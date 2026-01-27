@@ -161,23 +161,83 @@ Our benchmark reveals that these theoretical distinctions translate into tangibl
 
 ## Coordinate Rotation
 
-### Motivation
+In this section, we discuss coordinate rotation, focusing on its usage and implementation. First of all, we explain the reasons why coordinate rotation is applied when working with spatial data. To do so, we start by considering tree-based ensemble methods, including Random Forest, Gradient Boosting, and XGBoost, which are widely used in machine learning due to their flexibility, robustness, and strong predictive performance. However, these algorithms share a fundamental limitation: they rely exclusively on axis-aligned splits during tree construction. At each node, the algorithm selects a single feature and a threshold value to partition the data along that coordinate axis.
+This axis-aligned splitting strategy becomes a limitation when dealing with spatial data. Such limitations arise from the intrinsic characteristics of natural and human-related spatial phenomena, such as Topographic Features, Geological Structures and Urban and Human Geography.
 
-Tree-based models rely on axis-aligned splits, which are suboptimal for spatial data.
+The structure of tree-based models implies that diagonal or curved boundaries must be approximated using only horizontal or vertical splits, leading to a  staircase approximation. To better capture such boundaries, a large number of partitions is required, resulting in deeper trees and an increased risk of overfitting.
 
-### Method
+To overcome these limitations, two main strategies can be considered. The first one is represented by Oblique Decision Trees, an algorithms that directly learn oblique splits by constructing linear combinations of features at each node; however, these methods are computationally demanding. The second strategy is our Coordinate Rotation, a simpler approach that augments the feature space with rotated versions of the original coordinates, allowing standard axis-aligned algorithms to effectively learn oblique boundaries.
 
-Application of coordinate rotations to enable oblique decision boundaries.
+The Coordinate rotation method is based on the transformation of the original spatial coordinates $(x, y)$ by applyng a series of rotation transformation around the centroid of the training data. Using this procedure we are able to obtain an icreased number of feature space containing multiple and different represantions of the same space locations, unique for their rotation angle
 
-### Mathematical Formulation
+#### Algorithmic Procedure
+
+We applied the coordinate rotation following the steps described below.
+
+**Step 1: Compute the Spatial Centroid**
+
+For a training dataset with $n$ observations and coordinates $(x_i, y_i)$ for $i = 1, \ldots, n$, we first compute the centroid:
 
 $$
-x' = x \cos(\theta) - y \sin(\theta)
+\bar{x} = \frac{1}{n}\sum_{i=1}^{n} x_i, \quad \bar{y} = \frac{1}{n}\sum_{i=1}^{n} y_i
 $$
 
+The choice of rotating around the centroid rather than around the origin is made to ensure numerical stability and to preserve the spatial distribution of the data.
+
+**Step 2: Define Rotation Angles**
+
+We generate a set of uniformly distributed rotation angles. For $k$ total axes (including the original coordinates), we use $k-1$ rotation angles:
+
 $$
-y' = x \sin(\theta) + y \cos(\theta)
+\theta_j = \frac{360° \cdot j}{k}, \quad j = 1, 2, \ldots, k-1
 $$
+
+In our implementation, we use $k = 23$ axes, yielding 22 rotation angles uniformly distributed across the full circle. This choice enables to have a sufficient angular resolution to capture patterns while keeping the computational cost low.
+
+**Step 3: Apply Rotation Transformations**
+
+For each angle $\theta_j$, we compute the rotated coordinates for all observations. The rotation transformation is applied to the centered coordinates:
+
+$$
+\begin{aligned}
+x'_{ij} &= \bar{x} + (x_i - \bar{x}) \cos(\theta_j) - (y_i - \bar{y}) \sin(\theta_j) \\
+y'_{ij} &= \bar{y} + (x_i - \bar{x}) \sin(\theta_j) + (y_i - \bar{y}) \cos(\theta_j)
+\end{aligned}
+$$
+
+This generates a set of rotated coordinate pairs $(x'_{ij}, y'_{ij})$ for each observation $i$ and rotation angle $j$.
+
+**Step 4: Construct Augmented Feature Matrix**
+
+The final feature matrix for each observation consists of:
+- Original coordinates: $(x, y)$
+- Rotated coordinates: $(x'_1, y'_1), (x'_2, y'_2), \ldots, (x'_{22}, y'_{22})$
+
+In total we have **46 features** for coordinate-rotated models (compared to 2 features for baseline models using only original coordinates).
+
+#### Model Selection for Coordinate Rotation
+
+Not all algorithms benefit equally from coordinate rotation. For this reason, we apply the technique selectively based on each algorithmic properties:
+
+**Models with Coordinate Rotation Variants**:
+- Random Forest (RF vs RF-CR)
+- XGBoost (XGB vs XGB-CR)
+- MixGBoost (MixGB vs MixGB-CR)
+- GAM (GAM vs GAM-CR)
+
+The remaining algorithm are used only for a comparative purpose. This allow us to see how the coordinate rotations based models perform with respect to other existing strategy and isolate the specific impact of coordinate rotation on standard axis-aligned tree algorithms.
+
+#### Geometric Interpretation
+#### Geometric Interpretation
+
+From a geometric perspective, coordinate rotation can be interpreted as a change of reference system applied to the spatial domain. Each rotation defines a new coordinate system whose axes are oriented at a specific angle with respect to the original one. Within these rotated systems, spatial patterns that appear oblique in the original coordinates may become aligned with the axes, allowing tree-based models to represent them through simple axis-aligned splits.
+
+This interpretation makes explicit the connection between coordinate rotation and oblique decision boundaries. An axis-aligned split applied to a rotated coordinate, such as $(x'_j < c)$, corresponds to an oblique split in the original coordinate system, which can be written as:
+
+$$ (x - \bar{x}) \cos(\theta_j) - (y - \bar{y}) \sin(\theta_j) < c - \bar{x} $$
+
+This condition defines a linear decision boundary in the original space with slope tan(θⱼ). In this sense, coordinate rotation allows standard axis-aligned tree algorithms to approximate oblique splits without explicitly modifying the tree induction procedure.
+
 
 ### Implementation Details
 
