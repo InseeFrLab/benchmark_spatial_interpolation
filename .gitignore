@@ -20,3 +20,4 @@ results/
 # --- Other ---
 .DS_Store
 .env
+/final_report_files
