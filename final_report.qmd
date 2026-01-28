@@ -242,7 +242,13 @@ Not all algorithms benefit equally from coordinate rotation. For this reason, we
 
 **Models with Coordinate Rotation Variants**: - Random Forest (RF vs RF-CR) - XGBoost (XGB vs XGB-CR) - MixGBoost (MixGB vs MixGB-CR) - GAM (GAM vs GAM-CR)
 
+<<<<<<< HEAD
 The remaining algorithm are used only for a comparative purpose. This allow us to see how the coordinate rotations based models perform with respect to other existing strategy and isolate the specific impact of coordinate rotation on standard axis-aligned tree algorithms. \### Geometric Interpretation
+=======
+The remaining algorithm are used only for a comparative purpose. This allow us to see how the coordinate rotations based models perform with respect to other existing strategy and isolate the specific impact of coordinate rotation on standard axis-aligned tree algorithms.
+
+### Geometric Interpretation
+>>>>>>> 5617b0931e3b374b4ad3c373927a8a8d50aebc03
 
 From a geometric perspective, coordinate rotation can be interpreted as a change of reference system applied to the spatial domain. Each rotation defines a new coordinate system whose axes are oriented at a specific angle with respect to the original one. Within these rotated systems, spatial patterns that appear oblique in the original coordinates may become aligned with the axes, allowing tree-based models to represent them through simple axis-aligned splits.
 
