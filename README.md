@@ -9,3 +9,5 @@ chmod +x benchmark.sh
 ./benchmark.sh
 
 You can have a look at the report in s3 ! 
+
+Currently to avoid to run benchmark, a example.json file has been pushed to github with a production of the benchmark and you can direclty render the quarto document. 

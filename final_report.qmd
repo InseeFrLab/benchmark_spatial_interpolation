@@ -1,28 +1,67 @@
 ---
+# Keep metadata here for HTML/Internal use
 title: "Benchmark Algorithm of Ensemblist Methods on Spatial Data"
 author:
   - "Bianco Andrea"
   - "Mancini Matteo"
   - "Mellot Rodrigue"
-date: last-modified
 
 format:
-  html:
-    toc: true
-    number-sections: true
   pdf:
     documentclass: article
     papersize: a4
+    title-block-render: false
+    geometry:
+      - top=20mm
+      - bottom=20mm
+      - left=20mm
+      - right=20mm
     number-sections: true
     colorlinks: true
     fig-pos: "H"
-
-jupyter: python3
-bibliography: references.bib
+    include-in-header:
+      text: |
+        \let\maketitle\relax 
 
 execute:
   enabled: true
+  echo: false
+  warning: false
+  message: false
 ---
+\begin{titlepage}
+\begin{center}
+\includegraphics[width=0.7\textwidth]{ensai_logo.png}\\[1.5 cm] 
+ 
+\large{\textsc{Smart Data Project}}
+\rule{\linewidth}{0.4mm} \\[0.3cm]
+{\Large\bfseries \Large{Benchmark Algorithm of Ensemblist Methods on Spatial Data.}}\\[0.2cm]
+\rule{\linewidth}{0.4mm}\\[0.3cm]
+\large{\textsc{Quarto Report}}
+ 
+\vskip 80pt
+ 
+\begin{flushleft} \large
+\emph{Students:}\\\vspace{0.2cm}
+Andrea \textsc{Bianco} \\
+Matteo \textsc{Mancini} \\
+Rodrigue \textsc{Mellot}\\
+\end{flushleft}
+ 
+\begin{flushright} \large
+\emph{Under the direction of :} \\ \vspace{0.2cm}
+Olivier \textsc{Meslin} \\ \vspace{0.6cm}
+\end{flushright}
+ 
+\vfill
+{\large Promotion  2026}
+\end{center}
+\end{titlepage}
+\clearpage
+
+# Abstract
+
+This report provides a comprehensive benchmark...
 
 # Abstract
 
@@ -30,27 +69,13 @@ Brief summary of the project, including: - the spatial interpolation problem, - 
 
 # Introduction
 
-All of the work produced in this report is being made with a fix seed equal to 42.
+Spatial interpolation is a fundamental technique within the environmental sciences, used extensively to estimate the values of continuous variables at unsampled locations based exclusively on spatial coordinates. For decades, deterministic and geostatistical methods have been regarded as the premier choice for these tasks due to their mathematical foundations in spatial continuity. However, the recent advancement of ensemble learning methods—such as Random Forest and various Gradient Boosting machines—has begun to shift this perspective. These modern algorithms offer the potential to model complex, non-linear spatial surfaces that traditional methods may struggle to capture accurately.
 
-## Context
+The central research question of this benchmark involves identifying which algorithm is most effective for predicting spatial values using coordinates as the only covariates. In defining the most effective algorithm, this study looks beyond mere accuracy. We define the optimal model through the lens of both predictive precision and scalability. Precision measures the ability of a model to minimize error across diverse spatial geometries, while scalability evaluates the computational efficiency of the algorithm as it transitions from sparse datasets to large-scale high-density data.
 
-Introduce the spatial interpolation problem and its importance in environmental and geospatial applications.
+Much of this research is motivated by the proposition that coordinate rotation can be integrated into ensemble methods to effectively replace or outperform traditional deterministic algorithms. While standard tree-based models often struggle with axis-aligned splits in spatial contexts, the coordinate rotation paradigm suggests that transforming the feature space can unlock significantly higher performance. One of the primary goals of this benchmark is to rigorously test this hypothesis and develop a clear understanding of the true capabilities and limitations of coordinate rotation in spatial modeling.
 
-## Research Question
-
-Which algorithms perform best for spatial interpolation under different data-generating conditions?
-
-## Motivation
-
-Explain why comparing classical, geostatistical and machine learning approaches is relevant.
-
-## Main Contributions
-
-Summarize the main empirical and methodological contributions of the report.
-
-## Structure of the Report
-
-Brief description of the structure of the report.
+To achieve a robust evaluation, this study examines eight datasets comprising both real-world topographic data and synthetic stationary random fields. We compare a dozen distinct algorithms, ranging from k-nearest neighbors and kriging to advanced tree-based variants and generalized additive models. By analyzing these results across varied conditions, such as grid versus non-grid structures and small versus large sample sizes, this report seeks to provide a definitive comparison that guides practitioners in choosing the most efficient method for their specific spatial interpolation needs.
 
 # Datasets
 
@@ -79,15 +104,13 @@ For the Small real-world datasets, we use a subset of the French territory by fi
 | Dataset Name | Origin | Size Category | Structure | Approx. Row Count | Description |
 |------------|------------|------------|------------|------------|------------|
 | **bdalti** | Real | Large | No Grid | \~7,000,000 | BDALTI dataset. |
-| **bdalti_48** | Real | Small | No Grid | \~400,000 | Department 48 (Lozère) subset of BDALTI. |
+| **bdalti_48** | Real | Small | No Grid | \~40,000 | Department 48 (Lozère) subset of BDALTI. |
 | **rgealti** | Real | Large | Grid | \~22,000,000,000 | RGEALTI. |
-| **rgealti_48** | Real | Small | Grid | \~150,000 | Department 48 subset of RGEALTI. |
+| **rgealti_48** | Real | Small | Grid | \~1,500,000 | Department 48 subset of RGEALTI. |
 | **S-G-Sm** | Synthetic | Small | Grid | 10,000 | Structured Grid. |
 | **S-G-Lg** | Synthetic | Large | Grid | 1,000,000 | Structured Grid. |
 | **S-NG-Sm** | Synthetic | Small | No Grid | 10,000 | 10k points, Uniform Random Distribution. |
 | **S-NG-Lg** | Synthetic | Large | No Grid | 1,000,000 | 1M points, Uniform Random Distribution. |
-
-\*\* Note: For the full RGEALTI, the script currently uses a `.head(1_000_000)` limit to manage the massive 22-billion-row source file.\*
 
 # Methodology
 
@@ -345,79 +368,244 @@ def get_model_color(model):
     return '#888888'
 ```
 
-## Overall Performance
+## Analysis per Category
 
-Global comparison of all algorithms across datasets.
+### Training Time 
+
+This is comming first because it will determined, which dataset should be runnned for large data set based on the time spend for executing small datasets. 
 
 ```{python}
 #| echo: false
 
-def create_fig1_r2_heatmap_final():
-    ordered_groups = [
-        ('Det.', deterministic_models),
-        ('Tree', tree_models),
-        ('Adv.', advanced_tree_models),
-        ('Geo.', geostatistical_models),
-        ('GAM', gam_models)
+def create_fig_single_small_time_average():
+    """Figure: Temps d'entraînement moyen sur tous les Small Datasets"""
+    
+    # 1. Identification des datasets "Small"
+    small_ds_list = ['rgealti_48', 'bdalti_48', 'S-G-Sm', 'S-NG-Sm']
+    
+    time_avg_list = []
+    
+    for m_key in model_names.keys():
+        # Filtrer les résultats pour ce modèle sur les datasets Small uniquement
+        relevant_results = [r for r in results if r['model'] == m_key and r['dataset'] in small_ds_list]
+        
+        if relevant_results:
+            # Calcul de la moyenne du temps d'entraînement
+            avg_time = np.mean([r.get('training_time', 0) for r in relevant_results])
+            time_avg_list.append({
+                'ModelKey': m_key,
+                'ModelName': model_names[m_key],
+                'AvgTime': avg_time,
+                'Color': get_model_color(m_key)
+            })
+    
+    # 2. Création du DataFrame et tri décroissant par temps
+    df_time = pd.DataFrame(time_avg_list).sort_values(by='AvgTime', ascending=True)
+    
+    # 3. Plot
+    fig, ax = plt.subplots(figsize=(12, 7))
+    
+    bars = ax.bar(df_time['ModelName'], df_time['AvgTime'], 
+                  color=df_time['Color'], edgecolor='black', linewidth=0.8)
+    
+    # 4. Esthétique et Échelle
+    ax.set_yscale('log')
+    ax.grid(axis='y', linestyle='--', alpha=0.3)
+    ax.set_title('Average Training Time on Small Datasets (All Types)', fontsize=14, fontweight='bold', pad=20)
+    ax.set_ylabel('Mean Training Time (seconds) - Log Scale', fontsize=12)
+    ax.set_xlabel('Algorithms (Ranked by Duration)', fontsize=12)
+    
+    # 5. Coloration des noms des modèles sur l'axe X
+    ax.set_xticks(range(len(df_time)))
+    ax.set_xticklabels(df_time['ModelName'], rotation=45, ha='right')
+    
+    for tick, color in zip(ax.get_xticklabels(), df_time['Color']):
+        tick.set_color(color)
+        tick.set_weight('bold')
+
+    # Ajout de la légende des groupes
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], color=color_deterministic, lw=6, label='Deterministic'),
+        Line2D([0], [0], color=color_geostat, lw=6, label='Geostatistical'),
+        Line2D([0], [0], color=color_tree, lw=6, label='Tree-based'),
+        Line2D([0], [0], color=color_advanced_tree, lw=6, label='Advanced Tree'),
+        Line2D([0], [0], color=color_gam, lw=6, label='GAM')
     ]
-    
-    all_models_ordered = []
-    group_boundaries = []
-    curr = 0
-    for _, mods in ordered_groups:
-        all_models_ordered.extend(mods)
-        curr += len(mods)
-        group_boundaries.append(curr)
-    group_boundaries.pop()
+    ax.legend(handles=legend_elements, title="Algorithm Groups", loc='upper right', frameon=True)
 
-    r2_matrix = np.zeros((len(all_models_ordered), len(datasets)))
-    r2_matrix[:] = np.nan
-    
-    for i, model in enumerate(all_models_ordered):
-        for j, ds in enumerate(datasets):
-            match = [r for r in results if r['model'] == model and r['dataset'] == ds]
-            if match: r2_matrix[i, j] = match[0]['r2_score']
-    
-    fig, ax = plt.subplots(figsize=(14, 8))
-    im = ax.imshow(r2_matrix, aspect='auto', cmap='RdYlGn', vmin=0.5, vmax=1)
-    
-    ax.set_xticks(np.arange(len(datasets)))
-    ax.set_yticks(np.arange(len(all_models_ordered)))
-    ax.set_xticklabels([dataset_names[d] for d in datasets], rotation=30, ha='right')
-    
-    # Coloration et labels axe Y
-    y_labels = [model_names.get(m, m) for m in all_models_ordered]
-    ax.set_yticklabels(y_labels)
-    for i, m_key in enumerate(all_models_ordered):
-        ax.get_yticklabels()[i].set_color(get_model_color(m_key))
-        ax.get_yticklabels()[i].set_weight('bold')
-
-    # Barres noires épaisses
-    for b in group_boundaries:
-        ax.axhline(y=b - 0.5, color='black', linewidth=4, zorder=10)
-    
-    # Annotations
-    for i in range(len(all_models_ordered)):
-        for j in range(len(datasets)):
-            if not np.isnan(r2_matrix[i, j]):
-                val = r2_matrix[i, j]
-                ax.text(j, i, f'{val:.3f}', ha="center", va="center", 
-                        color="white" if val < 0.6 else "black", fontsize=8, fontweight='bold')
-    
-    plt.colorbar(im, ax=ax, label='$R^2$ Score')
-    ax.set_title('Global Performance $R^2$ (Ordered by Dataset & Algorithm Group)')
     plt.tight_layout()
     plt.show()
 
-create_fig1_r2_heatmap_final()
-
+create_fig_single_small_time_average()
 ```
 
-## Detallied Analysis
+Here we can see that determnistic algorithm are the faster, on the opposite GeoRF and GAM models seems to be very slow. Based on that, we decided to not run GAM and GeoRF on big dataset and see what is happening. Then we try to run the rests of algorithms on big dataset, and we remark that krigning is very very slow, that confirm a computationnal cost in O(n**3) and stops us from running this alorithm. Then, we can see how evolved the datasets movinf from small datasets to big. 
 
-### Grid vs No-Grid Datasets
+```{python}
+#| echo: false
 
-Impact of spatial structure on performance.
+def create_fig_speed_vs_scalability():
+    """Figure: Base Speed vs Scalability Ratio"""
+    
+    small_ds = ['rgealti_48', 'bdalti_48', 'S-G-Sm', 'S-NG-Sm']
+    large_ds = ['rgealti', 'bdalti', 'S-G-Lg', 'S-NG-Lg']
+    
+    plot_data = []
+    
+    for m_key in model_names.keys():
+        times_sm = [r.get('training_time', 0) for r in results if r['model'] == m_key and r['dataset'] in small_ds]
+        times_lg = [r.get('training_time', 0) for r in results if r['model'] == m_key and r['dataset'] in large_ds]
+        
+        if times_sm and times_lg:
+            avg_sm = np.mean(times_sm)
+            avg_lg = np.mean(times_lg)
+            ratio = avg_lg / avg_sm if avg_sm > 0 else 0
+            
+            plot_data.append({
+                'Model': model_names[m_key],
+                'Time_Small': avg_sm,
+                'Time_Large': avg_lg,
+                'Ratio': ratio,
+                'Color': get_model_color(m_key)
+            })
+    
+    df = pd.DataFrame(plot_data)
+    
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    # On trace les points. La taille des points peut représenter le temps absolu sur Large
+    scatter = ax.scatter(df['Time_Small'], df['Ratio'], 
+                         c=df['Color'], s=df['Time_Large']*10 if df['Time_Large'].max() < 100 else 200, 
+                         edgecolors='black', alpha=0.8, zorder=3)
+    
+    # Ajout des noms des modèles à côté des points
+    for i, txt in enumerate(df['Model']):
+        ax.annotate(txt, (df['Time_Small'][i], df['Ratio'][i]), 
+                    xytext=(8, 8), textcoords='offset points', 
+                    fontsize=9, fontweight='bold', color=df['Color'][i])
+    
+    # Configuration des axes en Log
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    
+    ax.set_xlabel('Base Speed: Avg Training Time Small (s) - Log Scale', fontsize=11)
+    ax.set_ylabel('Scalability Gap: Ratio (Large/Small) - Log Scale', fontsize=11)
+    ax.set_title('Efficiency Landscape: Initial Speed vs. Scalability Cost', fontsize=14, fontweight='bold', pad=20)
+    
+    # Zones d'interprétation
+    ax.axhline(10, color='gray', linestyle='--', alpha=0.3) # Repère : 10x plus lent
+    ax.text(ax.get_xlim()[0]*1.1, 11, 'High Complexity (>10x)', color='red', alpha=0.6, fontsize=9)
+    ax.text(ax.get_xlim()[0]*1.1, 1.2, 'Linear Scaling', color='green', alpha=0.6, fontsize=9)
+
+    ax.grid(True, which="both", ls="-", alpha=0.15)
+    
+    # Légende manuelle pour les groupes
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], marker='o', color='w', label='Deterministic', markerfacecolor=color_deterministic, markersize=10),
+        Line2D([0], [0], marker='o', color='w', label='Geostatistical', markerfacecolor=color_geostat, markersize=10),
+        Line2D([0], [0], marker='o', color='w', label='Tree-based', markerfacecolor=color_tree, markersize=10),
+        Line2D([0], [0], marker='o', color='w', label='Adv. Tree', markerfacecolor=color_advanced_tree, markersize=10),
+        Line2D([0], [0], marker='o', color='w', label='GAM', markerfacecolor=color_gam, markersize=10)
+    ]
+    ax.legend(handles=legend_elements, title="Algorithm Groups", loc='upper left')
+
+    plt.tight_layout()
+    plt.show()
+
+create_fig_speed_vs_scalability()
+```
+
+### Scalability 
+
+Now that we see that it could be hard for some dataset we are going to try to see if increasing the size of the data could make some algorithm improving fatser than the other. Of course this comparison could be only apply to the one who have run on big and small datasets. 
+
+```{python}
+#| echo: false
+
+def create_fig_r2_scalability_dumbbell():
+    """Figure: R2 Performance Jump (Small to Large)"""
+    
+    # 1. Dataset mapping
+    small_ds = ['rgealti_48', 'bdalti_48', 'S-G-Sm', 'S-NG-Sm']
+    large_ds = ['rgealti', 'bdalti', 'S-G-Lg', 'S-NG-Lg']
+    
+    scaling_data = []
+    
+    # Identify which models have both small and large results
+    for m_key in model_names.keys():
+        r2_sm = [r['r2_score'] for r in results if r['model'] == m_key and r['dataset'] in small_ds]
+        r2_lg = [r['r2_score'] for r in results if r['model'] == m_key and r['dataset'] in large_ds]
+        
+        if r2_sm and r2_lg:
+            m_sm = np.mean(r2_sm)
+            m_lg = np.mean(r2_lg)
+            scaling_data.append({
+                'ModelKey': m_key,
+                'ModelName': model_names[m_key],
+                'R2_Small': m_sm,
+                'R2_Large': m_lg,
+                'Delta': m_lg - m_sm,
+                'Color': get_model_color(m_key)
+            })
+    
+    df_scale = pd.DataFrame(scaling_data).sort_values(by='R2_Large', ascending=True)
+    
+    fig, ax = plt.subplots(figsize=(12, 8))
+    ax.grid(axis='x', linestyle='--', alpha=0.3)
+    
+    # Draw the lines
+    ax.hlines(y=df_scale['ModelName'], xmin=df_scale['R2_Small'], xmax=df_scale['R2_Large'], 
+              color='black', alpha=0.3, linewidth=2, zorder=1)
+    
+    # Draw Small points
+    ax.scatter(df_scale['R2_Small'], df_scale['ModelName'], color='white', 
+               edgecolors=df_scale['Color'], s=80, label='Small Dataset', zorder=3, linewidth=2)
+    
+    # Draw Large points
+    ax.scatter(df_scale['R2_Large'], df_scale['ModelName'], color=df_scale['Color'], 
+               edgecolors='black', s=120, label='Large Dataset', zorder=4)
+    
+    # Add Delta text labels
+    for i, row in df_scale.iterrows():
+        ax.text(row['R2_Large'] + 0.005, row['ModelName'], f"+{row['Delta']:.3f}", 
+                va='center', fontsize=9, fontweight='bold', color=row['Color'])
+
+    ax.set_title('Predictive Scalability: $R^2$ Improvement (Small $\\rightarrow$ Large Data)', fontsize=14, fontweight='bold', pad=20)
+    ax.set_xlabel('$R^2$ Score', fontsize=12)
+    
+    # Color and Bold Y-axis ticks correctly
+    ticks = ax.get_yticklabels()
+    for tick in ticks:
+        m_display_name = tick.get_text()
+        # Find the original key to get the correct color
+        m_key = next((k for k, v in model_names.items() if v == m_display_name), None)
+        if m_key:
+            tick.set_color(get_model_color(m_key))
+            tick.set_weight('bold')
+
+    # Custom Legend
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], marker='o', color='w', label='Small Data $R^2$', 
+               markerfacecolor='white', markeredgecolor='gray', markersize=8),
+        Line2D([0], [0], marker='o', color='w', label='Large Data $R^2$', 
+               markerfacecolor='gray', markeredgecolor='black', markersize=10),
+    ]
+    ax.legend(handles=legend_elements, loc='lower right', frameon=True)
+
+    plt.tight_layout()
+    plt.show()
+
+create_fig_r2_scalability_dumbbell()
+```
+
+Now that we see that large data set could make the R2 varying we are going to try to explain the other differnce by using only small datasets. 
+
+### Grid or real what is relevant ? 
+
+We have seen that the grid could have some importance in the results 
 
 ```{python}
 #| echo: false
@@ -487,179 +675,77 @@ def create_fig_side_by_side_delta():
 create_fig_side_by_side_delta()
 ```
 
-### Effect of Coordinate Rotation
+## Effects of Coordinate Rotation
 
 Comparison of results with and without rotation.
+
+
+## Overall Performance
+
+A Big table to have synthtic data from the benchmark. 
+
 ```{python}
 #| echo: false
 
-def create_fig2_rotation_comparison():
-    """Figure 2: Impact of Coordinate Rotation on Model Performance"""
-    rotation_pairs = [
-        ('random_forest', 'random_forest_cr'),
-        ('xgboost', 'xgboost_cr'),
-        ('mixgboost', 'mixgboost_cr'),
-        ('gam', 'gam_cr')
+def create_fig1_r2_heatmap_final():
+    ordered_groups = [
+        ('Det.', deterministic_models),
+        ('Tree', tree_models),
+        ('Adv.', advanced_tree_models),
+        ('Geo.', geostatistical_models),
+        ('GAM', gam_models)
     ]
     
-    # Prepare data for plotting
-    plot_data = []
-    for base_key, cr_key in rotation_pairs:
-        for dataset in datasets:
-            base_res = [r for r in results if r['model'] == base_key and r['dataset'] == dataset]
-            cr_res = [r for r in results if r['model'] == cr_key and r['dataset'] == dataset]
-            
-            if base_res and cr_res:
-                plot_data.append({
-                    'Algorithm': model_names[base_key].replace('-CR', ''),
-                    'Type': 'Standard',
-                    'R2': base_res[0]['r2_score'],
-                    'Family': base_key
-                })
-                plot_data.append({
-                    'Algorithm': model_names[base_key].replace('-CR', ''),
-                    'Type': 'With CR',
-                    'R2': cr_res[0]['r2_score'],
-                    'Family': base_key
-                })
+    all_models_ordered = []
+    group_boundaries = []
+    curr = 0
+    for _, mods in ordered_groups:
+        all_models_ordered.extend(mods)
+        curr += len(mods)
+        group_boundaries.append(curr)
+    group_boundaries.pop()
 
-    import pandas as pd
-    df_plot = pd.DataFrame(plot_data)
+    r2_matrix = np.zeros((len(all_models_ordered), len(datasets)))
+    r2_matrix[:] = np.nan
     
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.barplot(data=df_plot, x='Algorithm', y='R2', hue='Type', ax=ax, palette=['#D3D3D3', '#505050'])
+    for i, model in enumerate(all_models_ordered):
+        for j, ds in enumerate(datasets):
+            match = [r for r in results if r['model'] == model and r['dataset'] == ds]
+            if match: r2_matrix[i, j] = match[0]['r2_score']
     
-    # Coloring the x-axis labels by family
-    for i, label in enumerate(ax.get_xticklabels()):
-        model_key = [k for k, v in model_names.items() if v == label.get_text()][0]
-        label.set_color(get_model_color(model_key))
-        label.set_weight('bold')
+    fig, ax = plt.subplots(figsize=(14, 8))
+    im = ax.imshow(r2_matrix, aspect='auto', cmap='RdYlGn', vmin=0.5, vmax=1)
+    
+    ax.set_xticks(np.arange(len(datasets)))
+    ax.set_yticks(np.arange(len(all_models_ordered)))
+    ax.set_xticklabels([dataset_names[d] for d in datasets], rotation=30, ha='right')
+    
+    # Coloration et labels axe Y
+    y_labels = [model_names.get(m, m) for m in all_models_ordered]
+    ax.set_yticklabels(y_labels)
+    for i, m_key in enumerate(all_models_ordered):
+        ax.get_yticklabels()[i].set_color(get_model_color(m_key))
+        ax.get_yticklabels()[i].set_weight('bold')
 
-    ax.set_title('Performance Comparison: Standard vs Coordinate Rotation (CR)')
-    ax.set_ylim(0, 1.05)
-    ax.set_ylabel('$R^2$ Score')
-    plt.legend(title='Method', loc='lower right')
+    # Barres noires épaisses
+    for b in group_boundaries:
+        ax.axhline(y=b - 0.5, color='black', linewidth=4, zorder=10)
+    
+    # Annotations
+    for i in range(len(all_models_ordered)):
+        for j in range(len(datasets)):
+            if not np.isnan(r2_matrix[i, j]):
+                val = r2_matrix[i, j]
+                ax.text(j, i, f'{val:.3f}', ha="center", va="center", 
+                        color="white" if val < 0.6 else "black", fontsize=8, fontweight='bold')
+    
+    plt.colorbar(im, ax=ax, label='$R^2$ Score')
+    ax.set_title('Global Performance $R^2$ (Ordered by Dataset & Algorithm Group)')
     plt.tight_layout()
     plt.show()
 
-create_fig2_rotation_comparison()
-```
+create_fig1_r2_heatmap_final()
 
-
-### Scalability
-
-Performance comparison on small vs large datasets.
-
-```{python}
-
-#| echo: false
-
-def create_fig4_real_vs_synthetic():
-    """Figure 5: Performance Consistency: Real vs Synthetic Data"""
-    real_ds = ['rgealti', 'bdalti', 'bdalti_48', 'rgealti_48']
-    
-    plot_data = []
-    for r in results:
-        category = 'Real' if r['dataset'] in real_ds else 'Synthetic'
-        plot_data.append({
-            'Model': model_names[r['model']],
-            'Category': category,
-            'R2': r['r2_score'],
-            'Family': r['model']
-        })
-        
-    import pandas as pd
-    df_plot = pd.DataFrame(plot_data)
-    
-    # Sort by model family
-    ordered_models = deterministic_models + geostatistical_models + tree_models + advanced_tree_models + gam_models
-    df_plot['Model'] = pd.Categorical(df_plot['Model'], categories=[model_names[m] for m in ordered_models], ordered=True)
-    df_plot = df_plot.sort_values('Model')
-
-    fig, ax = plt.subplots(figsize=(12, 6))
-    sns.boxplot(data=df_plot, x='Model', y='R2', hue='Category', ax=ax, palette=['#4A90E2', '#50E3C2'])
-    
-    # Color labels
-    for i, label in enumerate(ax.get_xticklabels()):
-        m_key = ordered_models[i]
-        label.set_color(get_model_color(m_key))
-        label.set_weight('bold')
-
-    ax.set_title('Performance Range: Real vs Synthetic Datasets')
-    ax.set_ylabel('$R^2$ Score')
-    plt.xticks(rotation=45, ha='right')
-    plt.tight_layout()
-    plt.show()
-
-create_fig4_real_vs_synthetic()
-```
-
-# Time Performance Analysis
-
-```{python}
-#| echo: false
-
-def create_fig_single_small_time_average():
-    """Figure: Temps d'entraînement moyen sur tous les Small Datasets"""
-    
-    # 1. Identification des datasets "Small"
-    small_ds_list = ['rgealti_48', 'bdalti_48', 'S-G-Sm', 'S-NG-Sm']
-    
-    time_avg_list = []
-    
-    for m_key in model_names.keys():
-        # Filtrer les résultats pour ce modèle sur les datasets Small uniquement
-        relevant_results = [r for r in results if r['model'] == m_key and r['dataset'] in small_ds_list]
-        
-        if relevant_results:
-            # Calcul de la moyenne du temps d'entraînement
-            avg_time = np.mean([r.get('training_time', 0) for r in relevant_results])
-            time_avg_list.append({
-                'ModelKey': m_key,
-                'ModelName': model_names[m_key],
-                'AvgTime': avg_time,
-                'Color': get_model_color(m_key)
-            })
-    
-    # 2. Création du DataFrame et tri décroissant par temps
-    df_time = pd.DataFrame(time_avg_list).sort_values(by='AvgTime', ascending=True)
-    
-    # 3. Plot
-    fig, ax = plt.subplots(figsize=(12, 7))
-    
-    bars = ax.bar(df_time['ModelName'], df_time['AvgTime'], 
-                  color=df_time['Color'], edgecolor='black', linewidth=0.8)
-    
-    # 4. Esthétique et Échelle
-    ax.set_yscale('log')
-    ax.grid(axis='y', linestyle='--', alpha=0.3)
-    ax.set_title('Average Training Time on Small Datasets (All Types)', fontsize=14, fontweight='bold', pad=20)
-    ax.set_ylabel('Mean Training Time (seconds) - Log Scale', fontsize=12)
-    ax.set_xlabel('Algorithms (Ranked by Duration)', fontsize=12)
-    
-    # 5. Coloration des noms des modèles sur l'axe X
-    ax.set_xticks(range(len(df_time)))
-    ax.set_xticklabels(df_time['ModelName'], rotation=45, ha='right')
-    
-    for tick, color in zip(ax.get_xticklabels(), df_time['Color']):
-        tick.set_color(color)
-        tick.set_weight('bold')
-
-    # Ajout de la légende des groupes
-    from matplotlib.lines import Line2D
-    legend_elements = [
-        Line2D([0], [0], color=color_deterministic, lw=6, label='Deterministic'),
-        Line2D([0], [0], color=color_geostat, lw=6, label='Geostatistical'),
-        Line2D([0], [0], color=color_tree, lw=6, label='Tree-based'),
-        Line2D([0], [0], color=color_advanced_tree, lw=6, label='Advanced Tree'),
-        Line2D([0], [0], color=color_gam, lw=6, label='GAM')
-    ]
-    ax.legend(handles=legend_elements, title="Algorithm Groups", loc='upper right', frameon=True)
-
-    plt.tight_layout()
-    plt.show()
-
-create_fig_single_small_time_average()
 ```
 
 # Discussion
