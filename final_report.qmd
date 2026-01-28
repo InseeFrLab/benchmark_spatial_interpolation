@@ -1,0 +1,947 @@
+---
+# Keep metadata here for HTML/Internal use
+title: "Benchmark Algorithm of Ensemblist Methods on Spatial Data"
+author:
+  - "Bianco Andrea"
+  - "Mancini Matteo"
+  - "Mellot Rodrigue"
+
+format:
+  pdf:
+    documentclass: article
+    papersize: a4
+    title-block-render: false
+    geometry:
+      - top=20mm
+      - bottom=20mm
+      - left=20mm
+      - right=20mm
+    number-sections: true
+    colorlinks: true
+    fig-pos: "H"
+    include-in-header:
+      text: |
+        \let\maketitle\relax 
+
+execute:
+  enabled: true
+  echo: false
+  warning: false
+  message: false
+---
+
+\begin{titlepage}
+\begin{center}
+\includegraphics[width=0.7\textwidth]{ensai_logo.png}\\[1.5 cm] 
+ 
+\large{\textsc{Smart Data Project}}
+\rule{\linewidth}{0.4mm} \\[0.3cm]
+{\Large\bfseries \Large{Benchmark Algorithm of Ensemblist Methods on Spatial Data.}}\\[0.2cm]
+\rule{\linewidth}{0.4mm}\\[0.3cm]
+\large{\textsc{Quarto Report}}
+ 
+\vskip 80pt
+ 
+\begin{flushleft} \large
+\emph{Students:}\\\vspace{0.2cm}
+Andrea \textsc{Bianco} \\
+Matteo \textsc{Mancini} \\
+Rodrigue \textsc{Mellot}\\
+\end{flushleft}
+ 
+\begin{flushright} \large
+\emph{Under the direction of :} \\ \vspace{0.2cm}
+Olivier \textsc{Meslin} \\ \vspace{0.6cm}
+\end{flushright}
+ 
+\vfill
+{\large Promotion  2026}
+\end{center}
+\end{titlepage}
+\clearpage
+
+# Abstract
+
+Brief summary of the project, including: - the spatial interpolation problem, - the benchmarked methods, - the experimental design, - the main empirical results, - and the key conclusions.
+
+# Introduction
+
+Spatial interpolation is a fundamental technique within the environmental sciences, used extensively to estimate the values of continuous variables at unsampled locations based exclusively on spatial coordinates. For decades, deterministic and geostatistical methods have been regarded as the premier choice for these tasks due to their mathematical foundations in spatial continuity. However, the recent advancement of ensemble learning methods—such as Random Forest and various Gradient Boosting machines—has begun to shift this perspective. These modern algorithms offer the potential to model complex, non-linear spatial surfaces that traditional methods may struggle to capture accurately.
+
+The central research question of this benchmark involves identifying which algorithm is most effective for predicting spatial values using coordinates as the only covariates. In defining the most effective algorithm, this study looks beyond mere accuracy. We define the optimal model through the lens of both predictive precision and scalability. Precision measures the ability of a model to minimize error across diverse spatial geometries, while scalability evaluates the computational efficiency of the algorithm as it transitions from sparse datasets to large-scale high-density data.
+
+Much of this research is motivated by the proposition that coordinate rotation can be integrated into ensemble methods to effectively replace or outperform traditional deterministic algorithms. While standard tree-based models often struggle with axis-aligned splits in spatial contexts, the coordinate rotation paradigm suggests that transforming the feature space can unlock significantly higher performance. One of the primary goals of this benchmark is to rigorously test this hypothesis and develop a clear understanding of the true capabilities and limitations of coordinate rotation in spatial modeling.
+
+To achieve a robust evaluation, this study examines eight datasets comprising both real-world topographic data and synthetic stationary random fields. We compare a dozen distinct algorithms, ranging from k-nearest neighbors and kriging to advanced tree-based variants and generalized additive models. By analyzing these results across varied conditions, such as grid versus non-grid structures and small versus large sample sizes, this report seeks to provide a definitive comparison that guides practitioners in choosing the most efficient method for their specific spatial interpolation needs.
+
+# Datasets
+
+There will be 8 datasets to cover combinations of:
+
+-   **Real or Synthetic**
+-   **Large or Small**
+-   **Grid or No Grid**
+
+For the **synthetic ones**, they are built following the idea that we need some data spatially correlated, be able to respect our different criteria:
+
+-   **Spatial Correlation**: We use a **Matérn covariance model** (dimension=2, variance=1, length scale=10) to generate a Stationary Random Field (SRF). This ensures the synthetic data mimics the spatial continuity and "smoothness" often found in real-world environmental phenomena.
+-   **Structure**: If there is a grid, points are generated on a regular Cartesian grid using a meshgrid of and coordinates. If it's not the case, points are sampled using a\*Uniform Random Distribution across the spatial domain to simulate irregular sampling.
+-   **Size**: Ranging from 10,000 points for "Small" Datasets to 1,000,000 points for "Large" datasets
+-   **Consistency**: A fixed seed (20170519) is applied to both the random field generation and the coordinate sampling to ensure the experiments are fully reproducible across different benchmark runs.
+
+For the **real datasets**, we utilize high-quality topographic data provided by the **IGN (Institut National de l'Information Géographique et Forestière)**, the French national mapping agency.
+
+-   **BD ALTI**: This dataset represents the "unstructured" real-world scenario. The points are derived from various sources (photogrammetry, digitization, etc.) where the spatial distribution of samples is irregular. So we can use this dataset as our no grid, large, real dataset.
+-   **RGE ALTI**: It is the highest resolution elevation model available nationally. It is provided as a 5-meter regular grid. The full national dataset contains over 22 billion points. So we can use this dataset as our grid, large, real dataset.
+
+For the Small real-world datasets, we use a subset of the French territory by filtering for Department 48 (Lozère). This department was chosen because its diverse topography—ranging from deep canyons and plateaus to mountainous terrain—offers a representative sample of various geographic challenges for spatial interpolation.
+
+## Dataset Reference Table
+
+| Dataset Name | Origin | Size Category | Structure | Approx. Row Count | Description |
+|------------|------------|------------|------------|------------|------------|
+| **bdalti** | Real | Large | No Grid | \~7,000,000 | BDALTI dataset. |
+| **bdalti_48** | Real | Small | No Grid | \~40,000 | Department 48 (Lozère) subset of BDALTI. |
+| **rgealti** | Real | Large | Grid | \~22,000,000,000 | RGEALTI. |
+| **rgealti_48** | Real | Small | Grid | \~1,500,000 | Department 48 subset of RGEALTI. |
+| **S-G-Sm** | Synthetic | Small | Grid | 10,000 | Structured Grid. |
+| **S-G-Lg** | Synthetic | Large | Grid | 1,000,000 | Structured Grid. |
+| **S-NG-Sm** | Synthetic | Small | No Grid | 10,000 | 10k points, Uniform Random Distribution. |
+| **S-NG-Lg** | Synthetic | Large | No Grid | 1,000,000 | 1M points, Uniform Random Distribution. |
+
+# Methodology
+
+## General Framework
+
+Overview of the benchmarking framework and experimental pipeline.
+
+## Algorithms Considered
+
+|                                       |                                    |
+|----------------------------------------|--------------------------------|
+| A\) Generalized Additive Models (GAM) | F\) Nearest Neighbor Interpolation |
+| B\) GeoSpatial Random Forest          | G\) Oblique Random Forest          |
+| C\) Gradient Boosting                 | H\) Ordinary Kriging               |
+| D\) Inverse Distance Weighting (IDW)  | I\) Random Forest                  |
+| E\) MixGBoost                         | J\) XGBoost                        |
+
+## Conceptual Comparison of Methods
+
+### Algorithm Families: Theoretical Foundations
+
+Our benchmark compares ten spatial interpolation algorithms that can be grouped into three distinct families based on their theoretical foundations: deterministic methods, geostatistical methods, and machine learning approaches. Understanding these distinctions is essential for interpreting our results and providing practical guidance for model selection.
+
+#### Deterministic Methods
+
+**Inverse Distance Weighting** (IDW) and **K-Nearest Neighbors** (K-NN) belong to the ***deterministic family***. These methods share fundamental characteristics that distinguish them from other approaches. First, they make **no probabilistic assumptions about** the **underlying data generation process**. Second, they do **not model prediction uncertainty** or provide confidence intervals. Third, they are **deterministic** in the **strict mathematical sense**: given identical input data, they always produce the same output, with no stochastic component in their formulation. Finally, they rely on fixed mathematical rules to compute interpolated values rather than learning from data.
+
+-   **IDW** calculates **predictions** as a **weighted average based on inverse distance**, where the **weight assigned** to each observation **decreases** as a **power function of distance** from the prediction location. So closer points receive higher weights, and the rate of decay is controlled by a single power parameter.
+
+-   **KNN** takes an even simpler approach, computing the **average** (or weighted average) of the **k nearest neighbors to the prediction point**.
+
+Both methods so are based purely on geometric principles and do not rely on any underlying statistical model. This simplicity offers clear practical advantages: they are easy to implement, as they only require basic distance computations, and they are computationally efficient because no training phase is needed. Their deterministic nature also makes them highly interpretable, since it is straightforward to understand how each prediction is obtained.
+
+At the same time, this simplicity comes with some limitations. These methods do not explicitly capture complex spatial structures that may be present in the data, and they rely on rigid assumptions. For instance, IDW assumes that the influence of observations decreases monotonically with distance, an assumption that may not hold in all spatial contexts. Despite these drawbacks, their speed and robustness make them useful baseline approaches.
+
+#### Geostatistical Method
+
+**Ordinary Kriging** represents the geostatistical approach. Unlike deterministic methods, it treats **spatial data** as **realizations** of an **underlying stochastic process**. This probabilistic framework allows the method to explicitly **model spatial autocorrelation**, provide uncertainty estimates for predictions, and determine weights that minimize the variance of the prediction error.
+
+At the core of the approach lies the **variogram**, which describes how similarity between observations changes with distance. Rather than simply assuming that nearby points are more influential, as deterministic methods do, **Kriging asks how strong this influence is and how it evolves across spatial scales**. Based on this information, optimal prediction weights are obtained by solving a system of linear equations that accounts for both inter-point distances and the overall spatial configuration.
+
+This solid theoretical foundation gives Kriging several important advantages. Under its assumptions it is the **BLUP** ensuring optimality in a statistical sense. It also guarantees exact interpolation at observed locations and produces smooth, continuous surfaces, avoiding the abrupt artifacts that may arise with simpler approaches. In addition, it naturally provides **measures of predictive uncertainty**, enabling the construction of **confidence intervals**.
+
+However, these theoretical advantages come with substantial practical challenges. Kriging has **cubic computational complexity**, as it **requires the inversion of an** $n \times n$ **matrix**, where $n$ is the number of observations. As a result, it becomes **prohibitively slow for datasets larger than roughly 10,000 points**. In addition, the method relies on strong statistical assumptions. It assumes intrinsic **stationarity**, implying a constant mean over the study area and a variogram that depends only on the distance between points, not on their absolute location. It also assumes **isotropy**, meaning that **spatial correlation depends solely on distance and not on direction**. When spatial patterns exhibit directional effects or anisotropy, these **assumptions** are **violated**, potentially leading to **degraded performance**.
+
+Beyond these computational and theoretical issues, Kriging also presents practical implementation difficulties. Prior to prediction, the variogram must be estimated from the data. This step requires selecting a theoretical variogram model—such as spherical, exponential, or Gaussian—and estimating its key parameters, including the nugget, sill, and range. This procedure is often partly subjective, demanding experience and judgment, and it can be sensitive to outliers. Since prediction quality depends directly on the variogram specification, a poorly fitted model can result in unreliable estimates. Moreover, as a linear method, Kriging has **limited ability** to **represent highly nonlinear spatial patterns**. It may overfit when applied to small datasets and implicitly assumes Gaussianity of the data, making transformations necessary when variables are strongly skewed.
+
+Taken together, these limitations imply that although Kriging is theoretically optimal under its assumptions, it is not always the most practical choice in real-world settings. The gap between theoretical optimality and empirical performance is therefore a central theme in the benchmark results presented in this study.
+
+#### Machine Learning Methods
+
+The machine learning family in our benchmark includes **Random Forest**, **Oblique Random Forest**, **Geospatial Random Forest** (GeoRF), **XGBoost**, **MixGBoost** and **Generalized Additive Models** (GAM). These methods represent a fundamentally different paradigm from both deterministic and geostatistical approaches. Within this diverse group, we can distinguish **tree-based ensemble methods** (all except GAM) from **non-tree-based approach**, a distinction that has important implications for their behavior with spatial data.
+
+This type of algorithms are fundamentally data-driven. They do **not rely** on **fixed mathematical formulas** anf they **do not assume specific probabilistic structures**. Instead, they learn complex patterns directly from training data through an iterative optimization process that automatically minimizes a loss function. This learning process enables ML methods to **model highly nonlinear relationships** between input features (spatial coordinates x and y) and the target variable z. The models **iteratively improve** their **predictions** using **optimization algorithms** such as **gradient descent**, **boosting**, or **bagging**, adapting to whatever patterns exist in the training data.
+
+**Tree-based** ensemble methods build predictions through **recursive partitioning** of the **feature space**.
+
+-   **Random Forest** employs a **bagging strategy**, training multiple decision trees on bootstrap samples of the data and averaging their predictions to reduce variance. Each individual tree learns to partition the coordinate space by making binary splits that minimize prediction error within resulting regions. The averaging across many diverse trees produces **stable**, **robust predictions**.\
+    \
+    **Oblique Random Forest** extends the standard Random Forest framework by **allowing decision boundaries** that are **not parallel to the coordinate axes**. While standard trees make axis-aligned splits of the form $x < t$ or $y < t$, oblique trees allow diagonal splits such as $a_1 x + a_2 y < t$. This added flexibility can be particularly **valuable for spatial data** where patterns may not align with the coordinate system.\
+    \
+    **GeoRF** builds on **Random Forest** specifically for **geographic applications**, explicitly incorporating spatial information into the learning process while maintaining the ensemble tree framework.
+
+-   **Gradient boosting** methods, take a different approach by **building trees sequentially**. Each new tree is trained to predict the residual errors of the existing ensemble, with the final prediction being a weighted sum of all trees. This iterative error correction often leads to **higher accuracy than bagging**, though it requires **careful tuning to avoid overfitting**.
+
+**GAM** represents a distinct approach within the ML family, it models the target as a **sum of smooth nonlinear functions of the input features**. This additive structure maintains some **interpretability** while still **capturing nonlinear effects**, positioning it at the boundary between classical statistical modeling and modern machine learning.
+
+Unlike Kriging, machine learning methods **do not explicitly model spatial autocorrelation**. Instead, **spatial structure is learned** implicitly **from coordinate features during training**. This data-driven approach gives ML models a high degree of flexibility, allowing them to **capture complex and nonlinear spatial patterns** and to **scale efficiently to large datasets**.
+
+However, this flexibility also entails important limitations for spatial interpolation. Because spatial dependence is not modeled explicitly, ML methods lack a principled notion of uncertainty and do not naturally provide prediction intervals. Moreover, **tree-based models** are subject to a **fundamental geometric constraint**: their **axis-aligned splits struggle to represent spatial gradients that evolve along oblique directions**. When spatial patterns are not aligned with the coordinate axes, this limitation can lead to suboptimal performance, in some cases even compared to simpler deterministic approaches. To mitigate this issue, in our analysis we explored **coordinate rotation** with the aim of **better aligning spatial patterns with the model’s decision boundaries**.
+
+## Coordinate Rotation
+
+In this section, we discuss coordinate rotation, focusing on its usage and implementation. First of all, we explain the reasons why coordinate rotation is applied when working with spatial data. To do so, we start by considering tree-based ensemble methods, including Random Forest, Gradient Boosting, and XGBoost, which are widely used in machine learning due to their flexibility, robustness, and strong predictive performance. However, these algorithms share a fundamental limitation: they rely exclusively on axis-aligned splits during tree construction. At each node, the algorithm selects a single feature and a threshold value to partition the data along that coordinate axis. This axis-aligned splitting strategy becomes a limitation when dealing with spatial data. Such limitations arise from the intrinsic characteristics of natural and human-related spatial phenomena, such as Topographic Features, Geological Structures and Urban and Human Geography.
+
+The structure of tree-based models implies that diagonal or curved boundaries must be approximated using only horizontal or vertical splits, leading to a staircase approximation. To better capture such boundaries, a large number of partitions is required, resulting in deeper trees and an increased risk of overfitting.
+
+To overcome these limitations, two main strategies can be considered. The first one is represented by Oblique Decision Trees, an algorithms that directly learn oblique splits by constructing linear combinations of features at each node; however, these methods are computationally demanding. The second strategy is our Coordinate Rotation, a simpler approach that augments the feature space with rotated versions of the original coordinates, allowing standard axis-aligned algorithms to effectively learn oblique boundaries.
+
+The Coordinate rotation method is based on the transformation of the original spatial coordinates $(x, y)$ by applyng a series of rotation transformation around the centroid of the training data. Using this procedure we are able to obtain an icreased number of feature space containing multiple and different represantions of the same space locations, unique for their rotation angle
+
+### Algorithmic Procedure
+
+We applied the coordinate rotation following the steps described below.
+
+**Step 1: Compute the Spatial Centroid**
+
+For a training dataset with $n$ observations and coordinates $(x_i, y_i)$ for $i = 1, \ldots, n$, we first compute the centroid:
+
+$$
+\bar{x} = \frac{1}{n}\sum_{i=1}^{n} x_i, \quad \bar{y} = \frac{1}{n}\sum_{i=1}^{n} y_i
+$$
+
+The choice of rotating around the centroid rather than around the origin is made to ensure numerical stability and to preserve the spatial distribution of the data.
+
+**Step 2: Define Rotation Angles**
+
+We generate a set of uniformly distributed rotation angles. For $k$ total axes (including the original coordinates), we use $k-1$ rotation angles:
+
+$$
+\theta_j = \frac{360° \cdot j}{k}, \quad j = 1, 2, \ldots, k-1
+$$
+
+In our implementation, we use $k = 23$ axes, yielding 22 rotation angles uniformly distributed across the full circle. This choice enables to have a sufficient angular resolution to capture patterns while keeping the computational cost low.
+
+**Step 3: Apply Rotation Transformations**
+
+For each angle $\theta_j$, we compute the rotated coordinates for all observations. The rotation transformation is applied to the centered coordinates:
+
+$$
+\begin{aligned}
+x'_{ij} &= \bar{x} + (x_i - \bar{x}) \cos(\theta_j) - (y_i - \bar{y}) \sin(\theta_j) \\
+y'_{ij} &= \bar{y} + (x_i - \bar{x}) \sin(\theta_j) + (y_i - \bar{y}) \cos(\theta_j)
+\end{aligned}
+$$
+
+This generates a set of rotated coordinate pairs $(x'_{ij}, y'_{ij})$ for each observation $i$ and rotation angle $j$.
+
+**Step 4: Construct Augmented Feature Matrix**
+
+The final feature matrix for each observation consists of: - Original coordinates: $(x, y)$ - Rotated coordinates: $(x'_1, y'_1), (x'_2, y'_2), \ldots, (x'_{22}, y'_{22})$
+
+In total we have **46 features** for coordinate-rotated models (compared to 2 features for baseline models using only original coordinates).
+
+### Model Selection for Coordinate Rotation
+
+Not all algorithms benefit equally from coordinate rotation. For this reason, we apply the technique selectively based on each algorithmic properties:
+
+**Models with Coordinate Rotation Variants**: - Random Forest (RF vs RF-CR) - XGBoost (XGB vs XGB-CR) - MixGBoost (MixGB vs MixGB-CR) - GAM (GAM vs GAM-CR)
+
+The remaining algorithm are used only for a comparative purpose. This allow us to see how the coordinate rotations based models perform with respect to other existing strategy and isolate the specific impact of coordinate rotation on standard axis-aligned tree algorithms. 
+
+### Geometric Interpretation
+
+From a geometric perspective, coordinate rotation can be interpreted as a change of reference system applied to the spatial domain. Each rotation defines a new coordinate system whose axes are oriented at a specific angle with respect to the original one. Within these rotated systems, spatial patterns that appear oblique in the original coordinates may become aligned with the axes, allowing tree-based models to represent them through simple axis-aligned splits.
+
+This interpretation makes explicit the connection between coordinate rotation and oblique decision boundaries. An axis-aligned split applied to a rotated coordinate, such as $(x'_j < c)$, corresponds to an oblique split in the original coordinate system, which can be written as:
+
+$$ (x - \bar{x}) \cos(\theta_j) - (y - \bar{y}) \sin(\theta_j) < c - \bar{x} $$
+
+This condition defines a linear decision boundary in the original space with slope tan(θⱼ). In this sense, coordinate rotation allows standard axis-aligned tree algorithms to approximate oblique splits without explicitly modifying the tree induction procedure.
+
+### Implementation Details
+
+During the implementation, the choice has been made to pur the number of rotation up to 23, this choice has been made \[ASK OLIVIER\]. This implies that there is 23 couples of coordinates (x,y) the true one and 22 rotated. The rotation is made by the paper itself; and the angle of rotation for the i-th couple, i € {1, ..., 23}, is given by the formula 360 \* (i / 23), The 23-th is the real one.
+
+## Experimental Setup and Evaluation Metrics
+
+Our benchmark evaluation follows a standardized protocol to ensure fair comparison across all algorithms and datasets. The experimental configuration is summarized in Table X below. For some of the functions that we used, to implement them we built wrappers code, something that could have increase the running time of our algorithms.
+
+**Table X: Benchmark Configuration**
+
+| Component | Specification | Description |
+|---------------------|---------------------------|-------------------------|
+| **Train/Test Split** | 80% / 20% | Training set for model fitting, test set for performance evaluation |
+| **Random Seed** | 42 | Fixed seed for reproducible train/test splitting and model initialization |
+| **Test Size** | Variable by dataset | Small datasets: 5,000 points; Large datasets: 100,000 points |
+| **Coordinate Rotation** | 23 angles | Preprocessing for tree-based models (when applicable) |
+| **Target Transformation** | Log transform | Applied to real elevation datasets (BDALTI, RGEALTI) to handle skewness |
+| **Hardware** | SSPCloud environment | Multi-core CPU, optimized for parallel computation |
+| **Software** | Python 3.13 | scikit-learn, XGBoost, PyKrige, pyGAM, GeoRF, Polars, scikit-learn-intelex |
+| **Parallelization** | n_jobs=-1 | When it's possible, all available cores utilized where supported |
+
+**Performance Metrics:**
+
+We evaluate all models using three complementary metrics computed on the held-out test set:
+
+-   **R² (Coefficient of Determination)**: Measures the proportion of variance in the target variable explained by the model. This metric is scale-invariant and provides an intuitive measure of overall model fit.
+
+-   **RMSE (Root Mean Squared Error)**: Quantifies prediction error in the original units of the target variable. Penalizes large errors more heavily than small ones due to the squaring operation. Lower values indicate better performance.
+
+-   **MAE (Mean Absolute Error)**: Measures average absolute prediction error in original units. More robust to outliers than RMSE. Lower values indicate better performance.
+
+-   **Training Time**: Wall-clock time (in seconds) required for model fitting on the training set. Provides insight into computational efficiency and practical scalability.
+
+All metrics are computed on the test set to assess generalization performance on unseen data. For models requiring hyperparameters we use configurations established through preliminary tuning or standard recommendations from the literature. The focus of this benchmark is on comparing algorithm families rather than exhaustive hyperparameter optimization for individual models.
+
+# Results
+
+```{python}
+#| echo: false
+import json
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+import pandas as pd
+from pathlib import Path
+
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+
+sns.set_style("white") # Changement pour éviter les grilles par défaut
+plt.rcParams['figure.dpi'] = 300
+plt.rcParams['font.size'] = 10
+
+# Load data
+with open('example.json', 'r') as f:
+    data = json.load(f)
+
+results = data['results']
+
+# Ordre spécifique demandé pour les datasets
+datasets = [
+    'rgealti_48', 'rgealti', 'bdalti_48', 'bdalti', 
+    'S-G-Sm', 'S-G-Lg', 'S-NG-Sm', 'S-NG-Lg'
+]
+
+# Groupements de modèles
+deterministic_models = ['knn_3', 'idw_p3']
+geostatistical_models = ['kriging']
+tree_models = ['random_forest', 'random_forest_cr', 'xgboost', 'xgboost_cr', 'mixgboost', 'mixgboost_cr']
+advanced_tree_models = ['oblique_rf', 'geoRF']
+gam_models = ['gam', 'gam_cr']
+
+model_names = {
+    'random_forest': 'RF', 'random_forest_cr': 'RF-CR',
+    'xgboost': 'XGB', 'xgboost_cr': 'XGB-CR',
+    'mixgboost': 'MixGB', 'mixgboost_cr': 'MixGB-CR',
+    'oblique_rf': 'Oblique RF', 'geoRF': 'GeoRF',
+    'knn_3': 'KNN-3', 'idw_p3': 'IDW-p3',
+    'kriging': 'Kriging', 'gam': 'GAM', 'gam_cr': 'GAM-CR'
+}
+
+# Nouveaux noms avec parenthèses descriptives
+dataset_names = {
+    'rgealti_48': 'Real Grid Small',
+    'rgealti': 'Real Grid Large',
+    'bdalti_48': 'Real No-Grid Small',
+    'bdalti': 'Real No-Grid Large',
+    'S-G-Sm': 'Synth Grid Small',
+    'S-G-Lg': 'Synth Grid Large',
+    'S-NG-Sm': 'Synth No-Grid Small',
+    'S-NG-Lg': 'Synth No-Grid Large'
+}
+
+color_deterministic = '#2E86AB'
+color_geostat = '#A23B72'
+color_tree = '#F18F01'
+color_advanced_tree = '#C73E1D'
+color_gam = '#6A994E'
+
+def get_model_color(model):
+    if model in deterministic_models: return color_deterministic
+    if model in geostatistical_models: return color_geostat
+    if model in tree_models: return color_tree
+    if model in advanced_tree_models: return color_advanced_tree
+    if model in gam_models: return color_gam
+    return '#888888'
+```
+
+## Analysis per Category
+
+### Training Time
+
+Before evaluating predictive accuracy, it is essential to establish the computational feasibility of each algorithm. The following analysis focuses on training time across small datasets to determine which methods are suitable for large-scale applications. Deterministic models and traditional tree-based ensembles demonstrate near-instant execution, whereas geostatistical models like Kriging exhibit a significantly higher computational cost. This initial screening allows us to identify the subset of algorithms capable of scaling to millions of points, ensuring that our subsequent large-scale benchmarks remain computationally tractable.
+
+```{python}
+#| echo: false
+
+def create_fig_single_small_time_average():
+    """Figure: Temps d'entraînement moyen sur tous les Small Datasets"""
+    
+    # 1. Identification des datasets "Small"
+    small_ds_list = ['rgealti_48', 'bdalti_48', 'S-G-Sm', 'S-NG-Sm']
+    
+    time_avg_list = []
+    
+    for m_key in model_names.keys():
+        # Filtrer les résultats pour ce modèle sur les datasets Small uniquement
+        relevant_results = [r for r in results if r['model'] == m_key and r['dataset'] in small_ds_list]
+        
+        if relevant_results:
+            # Calcul de la moyenne du temps d'entraînement
+            avg_time = np.mean([r.get('training_time', 0) for r in relevant_results])
+            time_avg_list.append({
+                'ModelKey': m_key,
+                'ModelName': model_names[m_key],
+                'AvgTime': avg_time,
+                'Color': get_model_color(m_key)
+            })
+    
+    # 2. Création du DataFrame et tri décroissant par temps
+    df_time = pd.DataFrame(time_avg_list).sort_values(by='AvgTime', ascending=True)
+    
+    # 3. Plot
+    fig, ax = plt.subplots(figsize=(12, 7))
+    
+    bars = ax.bar(df_time['ModelName'], df_time['AvgTime'], 
+                  color=df_time['Color'], edgecolor='black', linewidth=0.8)
+    
+    # 4. Esthétique et Échelle
+    ax.set_yscale('log')
+    ax.grid(axis='y', linestyle='--', alpha=0.3)
+    ax.set_title('Average Training Time on Small Datasets (All Types)', fontsize=14, fontweight='bold', pad=20)
+    ax.set_ylabel('Mean Training Time (seconds) - Log Scale', fontsize=12)
+    ax.set_xlabel('Algorithms (Ranked by Duration)', fontsize=12)
+    
+    # 5. Coloration des noms des modèles sur l'axe X
+    ax.set_xticks(range(len(df_time)))
+    ax.set_xticklabels(df_time['ModelName'], rotation=45, ha='right')
+    
+    for tick, color in zip(ax.get_xticklabels(), df_time['Color']):
+        tick.set_color(color)
+        tick.set_weight('bold')
+
+    # Ajout de la légende des groupes
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], color=color_deterministic, lw=6, label='Deterministic'),
+        Line2D([0], [0], color=color_geostat, lw=6, label='Geostatistical'),
+        Line2D([0], [0], color=color_tree, lw=6, label='Tree-based'),
+        Line2D([0], [0], color=color_advanced_tree, lw=6, label='Advanced Tree'),
+        Line2D([0], [0], color=color_gam, lw=6, label='GAM')
+    ]
+    ax.legend(handles=legend_elements, title="Algorithm Groups", loc='upper right', frameon=True)
+
+    plt.tight_layout()
+    plt.show()
+
+create_fig_single_small_time_average()
+```
+
+Here we can see that determnistic algorithm are the faster, on the opposite GeoRF and GAM models seems to be very slow. Based on that, we decided to not run GAM and GeoRF on big dataset and see what is happening. Then we try to run the rests of algorithms on big dataset, and we remark that krigning is very very slow, that confirm a computationnal cost in O(n\*\*3) and stops us from running this alorithm. Then, we can see how evolved the datasets movinf from small datasets to big.
+
+```{python}
+#| echo: false
+
+def create_fig_speed_vs_scalability():
+    """Figure: Base Speed vs Scalability Ratio"""
+    
+    small_ds = ['rgealti_48', 'bdalti_48', 'S-G-Sm', 'S-NG-Sm']
+    large_ds = ['rgealti', 'bdalti', 'S-G-Lg', 'S-NG-Lg']
+    
+    plot_data = []
+    
+    for m_key in model_names.keys():
+        times_sm = [r.get('training_time', 0) for r in results if r['model'] == m_key and r['dataset'] in small_ds]
+        times_lg = [r.get('training_time', 0) for r in results if r['model'] == m_key and r['dataset'] in large_ds]
+        
+        if times_sm and times_lg:
+            avg_sm = np.mean(times_sm)
+            avg_lg = np.mean(times_lg)
+            ratio = avg_lg / avg_sm if avg_sm > 0 else 0
+            
+            plot_data.append({
+                'Model': model_names[m_key],
+                'Time_Small': avg_sm,
+                'Time_Large': avg_lg,
+                'Ratio': ratio,
+                'Color': get_model_color(m_key)
+            })
+    
+    df = pd.DataFrame(plot_data)
+    
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    # On trace les points. La taille des points peut représenter le temps absolu sur Large
+    scatter = ax.scatter(df['Time_Small'], df['Ratio'], 
+                         c=df['Color'], s=df['Time_Large']*10 if df['Time_Large'].max() < 100 else 200, 
+                         edgecolors='black', alpha=0.8, zorder=3)
+    
+    # Ajout des noms des modèles à côté des points
+    for i, txt in enumerate(df['Model']):
+        ax.annotate(txt, (df['Time_Small'][i], df['Ratio'][i]), 
+                    xytext=(8, 8), textcoords='offset points', 
+                    fontsize=9, fontweight='bold', color=df['Color'][i])
+    
+    # Configuration des axes en Log
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    
+    ax.set_xlabel('Base Speed: Avg Training Time Small (s) - Log Scale', fontsize=11)
+    ax.set_ylabel('Scalability Gap: Ratio (Large/Small) - Log Scale', fontsize=11)
+    ax.set_title('Efficiency Landscape: Initial Speed vs. Scalability Cost', fontsize=14, fontweight='bold', pad=20)
+    
+    # Zones d'interprétation
+    ax.axhline(10, color='gray', linestyle='--', alpha=0.3) # Repère : 10x plus lent
+    ax.text(ax.get_xlim()[0]*1.1, 11, 'High Complexity (>10x)', color='red', alpha=0.6, fontsize=9)
+    ax.text(ax.get_xlim()[0]*1.1, 1.2, 'Linear Scaling', color='green', alpha=0.6, fontsize=9)
+
+    ax.grid(True, which="both", ls="-", alpha=0.15)
+    
+    # Légende manuelle pour les groupes
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], marker='o', color='w', label='Deterministic', markerfacecolor=color_deterministic, markersize=10),
+        Line2D([0], [0], marker='o', color='w', label='Geostatistical', markerfacecolor=color_geostat, markersize=10),
+        Line2D([0], [0], marker='o', color='w', label='Tree-based', markerfacecolor=color_tree, markersize=10),
+        Line2D([0], [0], marker='o', color='w', label='Adv. Tree', markerfacecolor=color_advanced_tree, markersize=10),
+        Line2D([0], [0], marker='o', color='w', label='GAM', markerfacecolor=color_gam, markersize=10)
+    ]
+    ax.legend(handles=legend_elements, title="Algorithm Groups", loc='upper left')
+
+    plt.tight_layout()
+    plt.show()
+
+create_fig_speed_vs_scalability()
+```
+
+### Scalability
+
+Once the efficient algorithms are identified, we examine the "Size Effect" to determine if increasing the volume of data provides a significant return on investment in terms of R2. The transition from small to large datasets generally leads to a performance jump for all models, but the magnitude varies.
+
+```{python}
+#| echo: false
+
+def create_fig_r2_scalability_dumbbell():
+    """Figure: R2 Performance Jump (Small to Large)"""
+    
+    # 1. Dataset mapping
+    small_ds = ['rgealti_48', 'bdalti_48', 'S-G-Sm', 'S-NG-Sm']
+    large_ds = ['rgealti', 'bdalti', 'S-G-Lg', 'S-NG-Lg']
+    
+    scaling_data = []
+    
+    # Identify which models have both small and large results
+    for m_key in model_names.keys():
+        r2_sm = [r['r2_score'] for r in results if r['model'] == m_key and r['dataset'] in small_ds]
+        r2_lg = [r['r2_score'] for r in results if r['model'] == m_key and r['dataset'] in large_ds]
+        
+        if r2_sm and r2_lg:
+            m_sm = np.mean(r2_sm)
+            m_lg = np.mean(r2_lg)
+            scaling_data.append({
+                'ModelKey': m_key,
+                'ModelName': model_names[m_key],
+                'R2_Small': m_sm,
+                'R2_Large': m_lg,
+                'Delta': m_lg - m_sm,
+                'Color': get_model_color(m_key)
+            })
+    
+    df_scale = pd.DataFrame(scaling_data).sort_values(by='R2_Large', ascending=True)
+    
+    fig, ax = plt.subplots(figsize=(12, 8))
+    ax.grid(axis='x', linestyle='--', alpha=0.3)
+    
+    # Draw the lines
+    ax.hlines(y=df_scale['ModelName'], xmin=df_scale['R2_Small'], xmax=df_scale['R2_Large'], 
+              color='black', alpha=0.3, linewidth=2, zorder=1)
+    
+    # Draw Small points
+    ax.scatter(df_scale['R2_Small'], df_scale['ModelName'], color='white', 
+               edgecolors=df_scale['Color'], s=80, label='Small Dataset', zorder=3, linewidth=2)
+    
+    # Draw Large points
+    ax.scatter(df_scale['R2_Large'], df_scale['ModelName'], color=df_scale['Color'], 
+               edgecolors='black', s=120, label='Large Dataset', zorder=4)
+    
+    # Add Delta text labels
+    for i, row in df_scale.iterrows():
+        ax.text(row['R2_Large'] + 0.005, row['ModelName'], f"+{row['Delta']:.3f}", 
+                va='center', fontsize=9, fontweight='bold', color=row['Color'])
+
+    ax.set_title('Predictive Scalability: $R^2$ Improvement (Small $\\rightarrow$ Large Data)', fontsize=14, fontweight='bold', pad=20)
+    ax.set_xlabel('$R^2$ Score', fontsize=12)
+    
+    # Color and Bold Y-axis ticks correctly
+    ticks = ax.get_yticklabels()
+    for tick in ticks:
+        m_display_name = tick.get_text()
+        # Find the original key to get the correct color
+        m_key = next((k for k, v in model_names.items() if v == m_display_name), None)
+        if m_key:
+            tick.set_color(get_model_color(m_key))
+            tick.set_weight('bold')
+
+    # Custom Legend
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], marker='o', color='w', label='Small Data $R^2$', 
+               markerfacecolor='white', markeredgecolor='gray', markersize=8),
+        Line2D([0], [0], marker='o', color='w', label='Large Data $R^2$', 
+               markerfacecolor='gray', markeredgecolor='black', markersize=10),
+    ]
+    ax.legend(handles=legend_elements, loc='lower right', frameon=True)
+
+    plt.tight_layout()
+    plt.show()
+
+create_fig_r2_scalability_dumbbell()
+```
+
+We observe that while deterministic models hit a performance ceiling fairly quickly, ensemble methods continue to refine their decision boundaries as more points are provided. This suggests that the higher computational cost of training a Random Forest or XGBoost on large data is justified by a superior ability to extract spatial details that sparse data cannot reveal.
+
+### Grid or real what is relevant ?
+
+Beyond dataset size, the geometric arrangement of points plays a critical role in model performance.
+
+```{python}
+#| echo: false
+
+def create_fig_side_by_side_delta():
+    """Figure: Comparaison Grid vs No-Grid (Real vs Synthetic) classée par performance"""
+    
+    # 1. Calcul des Deltas
+    categories = {
+        'Real Datasets (Small)': ('rgealti_48', 'bdalti_48'),
+        'Synthetic Datasets (Small)': ('S-G-Sm', 'S-NG-Sm')
+    }
+    
+    fig, axes = plt.subplots(1, 2, figsize=(18, 8), sharey=False)
+    
+    for ax, (title, (grid_ds, nogrid_ds)) in zip(axes, categories.items()):
+        delta_list = []
+        
+        for m_key in model_names.keys():
+            grid_res = [r for r in results if r['model'] == m_key and r['dataset'] == grid_ds]
+            nogrid_res = [r for r in results if r['model'] == m_key and r['dataset'] == nogrid_ds]
+            
+            if grid_res and nogrid_res:
+                delta = grid_res[0]['r2_score'] - nogrid_res[0]['r2_score']
+                delta_list.append({
+                    'ModelName': model_names[m_key],
+                    'Delta': delta,
+                    'Color': get_model_color(m_key)
+                })
+        
+        # Création du DataFrame et Tri décroissant
+        df_temp = pd.DataFrame(delta_list).sort_values(by='Delta', ascending=False)
+        
+        # Plot
+        bars = ax.bar(df_temp['ModelName'], df_temp['Delta'], color=df_temp['Color'], edgecolor='black', linewidth=0.8)
+        
+        # Esthétique
+        ax.axhline(0, color='black', linewidth=2)
+        ax.grid(False) # Suppression de la grille
+        ax.set_title(title, fontsize=14, fontweight='bold', pad=15)
+        ax.set_ylabel('$\Delta R^2$ (Grid - No Grid)')
+        
+        # Rotation des labels X
+        ax.set_xticks(range(len(df_temp)))
+        ax.set_xticklabels(df_temp['ModelName'], rotation=45, ha='right')
+        
+        # Coloration des labels de l'axe X pour correspondre aux barres
+        for tick, color in zip(ax.get_xticklabels(), df_temp['Color']):
+            tick.set_color(color)
+            tick.set_weight('bold')
+
+    # Ajout d'une légende commune pour les groupes de modèles
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], color=color_deterministic, lw=6, label='Deterministic'),
+        Line2D([0], [0], color=color_geostat, lw=6, label='Geostatistical'),
+        Line2D([0], [0], color=color_tree, lw=6, label='Tree-based'),
+        Line2D([0], [0], color=color_advanced_tree, lw=6, label='Advanced Tree'),
+        Line2D([0], [0], color=color_gam, lw=6, label='GAM')
+    ]
+    fig.legend(handles=legend_elements, loc='lower center', ncol=5, bbox_to_anchor=(0.5, -0.05), frameon=True)
+
+    plt.suptitle('Impact of Grid Structure on Model Performance ($R^2$)', fontsize=16, y=1.02)
+    plt.tight_layout()
+    plt.show()
+
+create_fig_side_by_side_delta()
+```
+
+The comparison between structured grids and unstructured "no-grid" samples reveals a specific bias in tree-based algorithms toward axis-aligned structures. Similarly, the transition from synthetic stationary fields to complex real-world topography (RGE and BD ALTI) tests the robustness of the spatial correlation assumptions. Our findings indicate that while geostatistical methods are highly sensitive to the regularity of the grid for covariance estimation, ensemble methods are more resilient to irregular sampling, provided they are sufficiently tuned.
+
+## Effects of Coordinate Rotation
+
+Having established the baseline behavior of the models, we turn to the primary focus of this study: the impact of Coordinate Rotation (CR). The evidence clearly indicates that CR consistently improves ensemble methods across nearly all dataset types. By projecting coordinates into a rotated space, we resolve the "staircase" effect inherent in standard decision trees. The scatter plot below demonstrates that for every individual dataset, the CR-enhanced versions of RF and XGBoost occupy a higher performance tier than their standard counterparts, confirming that this simple transformation is a powerful upgrade for spatial tasks.
+
+```{python}
+#| echo: false
+
+def create_fig_cr_vs_std_shapes():
+    """Graph 1: Standard vs CR with shapes for algorithms"""
+    tree_pairs = [
+        ('random_forest', 'random_forest_cr', 'o', 'RF'), 
+        ('xgboost', 'xgboost_cr', 's', 'XGB'), 
+        ('mixgboost', 'mixgboost_cr', 'D', 'MixGB')
+    ]
+    
+    plot_data = []
+    for std_key, cr_key, marker, name in tree_pairs:
+        for ds in datasets:
+            std_r2 = next((r['r2_score'] for r in results if r['model'] == std_key and r['dataset'] == ds), None)
+            cr_r2 = next((r['r2_score'] for r in results if r['model'] == cr_key and r['dataset'] == ds), None)
+            
+            if std_r2 is not None and cr_r2 is not None:
+                plot_data.append({
+                    'Standard': std_r2,
+                    'Rotated': cr_r2,
+                    'Algorithm': name,
+                    'Marker': marker
+                })
+
+    df = pd.DataFrame(plot_data)
+    fig, ax = plt.subplots(figsize=(9, 8))
+    
+    # y=x line
+    ax.plot([0.5, 1], [0.5, 1], color='red', linestyle='--', alpha=0.5, label='Equality (y=x)')
+    
+    # Plot each algorithm with its specific marker
+    for name, marker in [('RF', 'o'), ('XGB', 's'), ('MixGB', 'D')]:
+        sub = df[df['Algorithm'] == name]
+        ax.scatter(sub['Standard'], sub['Rotated'], marker=marker, color=color_tree, 
+                   s=100, edgecolor='black', label=f'{name} (Tree Group)', alpha=0.8)
+    
+    ax.set_title('Direct Impact of CR: Performance Gain per Dataset', fontweight='bold')
+    ax.set_xlabel('$R^2$ Standard version')
+    ax.set_ylabel('$R^2$ Rotated (CR) version')
+    ax.set_xlim(0.5, 1.01); ax.set_ylim(0.5, 1.01)
+    ax.grid(True, alpha=0.2)
+    ax.legend()
+    plt.show()
+
+create_fig_cr_vs_std_shapes()
+```
+
+A key question of this benchmark is whether CR allows ensemble methods to definitively replace deterministic algorithms across different categories. When comparing the "Best Deterministic" against "Best Ensemble CR" across real and synthetic categories, the ensembles demonstrate a clear and stable superiority. Even in unstructured "No-Grid" real-world data, where deterministic models traditionally hold ground due to their local-neighbor logic, the CR ensembles maintain near-perfect precision. This confirms that once the axis-aligned limitation is removed, ensemble methods become the most robust general-purpose interpolators in our suite.
+
+```{python}
+#| echo: false
+
+def create_fig_cr_vs_det_categorical_shapes():
+    """Graph: CR Ensembles vs. Deterministic across Categories with shapes"""
+    
+    # 1. Define Categories and their associated datasets
+    categories = {
+        'Real Grid': ['rgealti_48', 'rgealti'],
+        'Real No-Grid': ['bdalti_48', 'bdalti'],
+        'Synth Grid': ['S-G-Sm', 'S-G-Lg'],
+        'Synth No-Grid': ['S-NG-Sm', 'S-NG-Lg']
+    }
+    
+    # 2. Define model configurations (Key, Color, Marker, Label)
+    models_config = [
+        ('knn_3', color_deterministic, 'x', 'KNN-3 (Det)'),
+        ('idw_p3', color_deterministic, '^', 'IDW-p3 (Det)'),
+        ('random_forest_cr', color_tree, 'o', 'RF-CR (Tree)'),
+        ('xgboost_cr', color_tree, 's', 'XGB-CR (Tree)'),
+        ('mixgboost_cr', color_tree, 'D', 'MixGB-CR (Tree)')
+    ]
+    
+    fig, ax = plt.subplots(figsize=(12, 7))
+    
+    # X-positions for categories
+    cat_names = list(categories.keys())
+    x_pos = np.arange(len(cat_names))
+    
+    # 3. Plotting
+    # We add a small jitter to avoid point overlap
+    for i, (cat_label, ds_list) in enumerate(categories.items()):
+        for m_key, m_color, m_marker, m_label in models_config:
+            # Get results for this model in this category
+            cat_results = [r['r2_score'] for r in results if r['model'] == m_key and r['dataset'] in ds_list]
+            
+            if cat_results:
+                # Add jitter based on model index
+                jitter = (models_config.index((m_key, m_color, m_marker, m_label)) - 2) * 0.05
+                # Label only once for the legend
+                is_first = (i == 0)
+                ax.scatter([i + jitter] * len(cat_results), cat_results, 
+                           marker=m_marker, color=m_color, s=100, 
+                           edgecolors='black', alpha=0.8, 
+                           label=m_label if is_first else "")
+
+    # 4. Aesthetics
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(cat_names, fontweight='bold')
+    ax.set_ylabel('$R^2$ Score', fontsize=12)
+    ax.set_title('Performance Stability: CR Ensembles vs. Deterministic Methods', fontsize=14, fontweight='bold', pad=20)
+    
+    ax.set_ylim(0.4, 1.05)
+    ax.grid(axis='y', linestyle='--', alpha=0.3)
+    
+    # Custom legend
+    ax.legend(title="Algorithms", bbox_to_anchor=(1.02, 1), loc='upper left', frameon=True)
+    
+    # Visual separators between categories
+    for x in x_pos[:-1]:
+        ax.axvline(x + 0.5, color='gray', alpha=0.1, linestyle='-')
+
+    plt.tight_layout()
+    plt.show()
+
+create_fig_cr_vs_det_categorical_shapes()
+```
+
+The final consideration for Coordinate Rotation is its scalability. While adding a rotation step introduces a slight overhead, the scalability graph reveals that the "time penalty" is negligible compared to the massive gain in R2. The CR-enhanced models occupy the top-right quadrant of our efficiency frontier, offering the highest accuracy currently achievable for large-scale spatial data. Unlike deterministic methods that are fast but plateau at lower precision, CR ensembles scale their accuracy effectively as data size increases, making them the ideal choice for high-precision topographic modeling.
+
+```{python}
+#| echo: false
+
+def create_fig_scalability_with_shapes():
+    """Graph 2: Efficiency Frontier with shapes for algorithms"""
+    # Define groups and markers
+    # Deterministic: Blue, Ensemble CR: Orange
+    models_config = [
+        ('knn_3', color_deterministic, 'x', 'KNN (Det)'),
+        ('idw_p3', color_deterministic, '^', 'IDW (Det)'),
+        ('random_forest_cr', color_tree, 'o', 'RF-CR'),
+        ('xgboost_cr', color_tree, 's', 'XGB-CR'),
+        ('mixgboost_cr', color_tree, 'D', 'MixGB-CR')
+    ]
+    
+    fig, ax = plt.subplots(figsize=(11, 7))
+    
+    for m_key, m_color, m_marker, m_label in models_config:
+        times = [r.get('training_time', 0.001) for r in results if r['model'] == m_key]
+        r2s = [r['r2_score'] for r in results if r['model'] == m_key]
+        
+        if times and r2s:
+            ax.scatter(times, r2s, marker=m_marker, color=m_color, s=120, 
+                       edgecolors='black', alpha=0.7, label=m_label)
+
+    ax.set_xscale('log')
+    ax.set_title('Scalability Landscape: Computational Cost vs. Precision', fontweight='bold')
+    ax.set_xlabel('Training Time (seconds) - Log Scale')
+    ax.set_ylabel('$R^2$ Score')
+    ax.set_ylim(0.4, 1.05)
+    ax.grid(True, which="both", ls="-", alpha=0.1)
+    ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.tight_layout()
+    plt.show()
+
+create_fig_scalability_with_shapes()
+```
+
+## Overall Performance
+
+To conclude the analysis, the global heatmap provides a unified view of all algorithms across all eight datasets. The separation between algorithm groups, marked by horizontal dividers, highlights the consistent dominance of the Advanced Tree and CR-enhanced Ensembles. While Kriging remains a strong competitor in specific synthetic grid scenarios, the Ensemblist + CR approach proves to be the most versatile, delivering high R2 scores regardless of whether the data is real, synthetic, large, or irregularly sampled.
+
+```{python}
+#| echo: false
+
+def create_fig1_r2_heatmap_final():
+    ordered_groups = [
+        ('Det.', deterministic_models),
+        ('Tree', tree_models),
+        ('Adv.', advanced_tree_models),
+        ('Geo.', geostatistical_models),
+        ('GAM', gam_models)
+    ]
+    
+    all_models_ordered = []
+    group_boundaries = []
+    curr = 0
+    for _, mods in ordered_groups:
+        all_models_ordered.extend(mods)
+        curr += len(mods)
+        group_boundaries.append(curr)
+    group_boundaries.pop()
+
+    r2_matrix = np.zeros((len(all_models_ordered), len(datasets)))
+    r2_matrix[:] = np.nan
+    
+    for i, model in enumerate(all_models_ordered):
+        for j, ds in enumerate(datasets):
+            match = [r for r in results if r['model'] == model and r['dataset'] == ds]
+            if match: r2_matrix[i, j] = match[0]['r2_score']
+    
+    fig, ax = plt.subplots(figsize=(14, 8))
+    im = ax.imshow(r2_matrix, aspect='auto', cmap='RdYlGn', vmin=0.5, vmax=1)
+    
+    ax.set_xticks(np.arange(len(datasets)))
+    ax.set_yticks(np.arange(len(all_models_ordered)))
+    ax.set_xticklabels([dataset_names[d] for d in datasets], rotation=30, ha='right')
+    
+    # Coloration et labels axe Y
+    y_labels = [model_names.get(m, m) for m in all_models_ordered]
+    ax.set_yticklabels(y_labels)
+    for i, m_key in enumerate(all_models_ordered):
+        ax.get_yticklabels()[i].set_color(get_model_color(m_key))
+        ax.get_yticklabels()[i].set_weight('bold')
+
+    # Barres noires épaisses
+    for b in group_boundaries:
+        ax.axhline(y=b - 0.5, color='black', linewidth=4, zorder=10)
+    
+    # Annotations
+    for i in range(len(all_models_ordered)):
+        for j in range(len(datasets)):
+            if not np.isnan(r2_matrix[i, j]):
+                val = r2_matrix[i, j]
+                ax.text(j, i, f'{val:.3f}', ha="center", va="center", 
+                        color="white" if val < 0.6 else "black", fontsize=8, fontweight='bold')
+    
+    plt.colorbar(im, ax=ax, label='$R^2$ Score')
+    ax.set_title('Global Performance $R^2$ (Ordered by Dataset & Algorithm Group)')
+    plt.tight_layout()
+    plt.show()
+
+create_fig1_r2_heatmap_final()
+
+```
+
+# Discussion
+
+The training time analysis confirms that deterministic models like IDW and KNN are nearly instantaneous, while advanced tree-based models and GAMs carry a significantly higher computational burden. The scalability analysis shows that while ensemblist methods generally improve as data size increases, they are often building upon a "staircase" logic that requires Coordinate Rotation (CR) to compete with the natural smoothness of other methods. Performance across grid and non-grid structures highlights a specific bias: tree-based algorithms struggle with patterns that don't align with coordinate axes unless they are heavily modified. Finally, the global heatmap illustrates that while CR-enhanced ensembles often reach the highest R^2^ values, deterministic methods maintain a high level of stability and competitive precision across almost all categories without the need for complex feature engineering.
+
+The core problem was to determine if modern ensemble methods could effectively replace traditional spatial interpolators. While the data shows that Coordinate Rotation allows ensemblist methods to outperform baselines in sheer predictive power, the results are more balanced than they first appear. Deterministic methods offer a level of "out-of-the-box" reliability and local-neighbor logic that ensemble methods must work hard to replicate through rotation and deep tree structures. Therefore, the most effective algorithm depends entirely on the trade-off between the need for absolute precision and the desire for a simple, mathematically transparent model that doesn't require coordinate augmentation.
+
+A significant limitation of this work is that the general datasets used may not capture the specific, high-frequency complex patterns where deterministic methods often excel due to their localized nature. Furthermore, the computational comparison is inherently biased because several algorithms rely on wraps for unmaintained or unoptimized packages, preventing them from reaching their true performance potential on our hardware. We are also limited by our reliance on R^2^ as the primary metric for the summary results. While R^2^ measures global variance, it can mask significant local errors that metrics like MAE or RMSE, which were calculated by the code but not fully explored in the main discussion, would reveal.
+
+To address these gaps, future research should zoom in on specific "geographic challenges," such as steep cliff faces or complex urban canyons, to see if deterministic methods provide better local fidelity than global ensemble models. We should also prioritize a more robust software implementation, moving away from unoptimized wrappers to native, high-performance libraries to ensure a fair "computational race" between families. Finally, a multi-metric evaluation strategy should be adopted. By integrating the MAE and RMSE data already provided by our experimental pipeline, we can provide a more holistic view of performance that accounts for both average error and the impact of extreme outliers.
+
+# Conclusion
+
+The integration of **Coordinate Rotation (CR)** into ensemble methods allows for excellent results using algorithms that were not originally specialized for spatial interpolation tasks. This constitutes a promising discovery, especially given that these machine learning methods are continuously evolving and improving. However, to truly determine if they can consistently provide superior results, it is necessary to test them against datasets exhibiting more complex spatial patterns than those used in this general benchmark. Furthermore, while these ensemblist models are somewhat more time-consuming to compute compared to deterministic baselines, they prove to be highly robust as the dataset size increases. This scalability ensures they remain a viable and powerful option for high-density geographic modeling where traditional methods fail.
+
+# References
+
+All references cited in the report.
+
+# Appendix A: Detailed Results
+
+## Synthetic Small Grid
+
+Detailed tables and figures.
+
+## Synthetic Small No-Grid
+
+Detailed tables and figures.
+
+## Synthetic Large Grid
+
+Detailed tables and figures.
+
+## Synthetic Large No-Grid
+
+Detailed tables and figures.
+
+## Real Small Datasets
+
+Detailed tables and figures.
+
+## Real Large Datasets
+
+Detailed tables and figures.
+
+# Appendix B: Algorithm Parameters
+
+Detailed hyperparameter settings for each algorithm.
