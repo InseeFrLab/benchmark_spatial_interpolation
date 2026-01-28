@@ -213,7 +213,7 @@ We evaluate all models using three complementary metrics computed on the held-ou
 
 - **Training Time**: Wall-clock time (in seconds) required for model fitting on the training set. Provides insight into computational efficiency and practical scalability.
 
-All metrics are computed on the test set to assess generalization performance on unseen data. For models requiring hyperparameters (e.g., variogram models for Kriging, number of estimators for tree-based methods), we use configurations established through preliminary tuning or standard recommendations from the literature. The focus of this benchmark is on comparing algorithm families rather than exhaustive hyperparameter optimization for individual models.
+All metrics are computed on the test set to assess generalization performance on unseen data. For models requiring hyperparameters we use configurations established through preliminary tuning or standard recommendations from the literature. The focus of this benchmark is on comparing algorithm families rather than exhaustive hyperparameter optimization for individual models.
 
 # Results
 ```{python}
